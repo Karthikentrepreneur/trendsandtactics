@@ -57,17 +57,17 @@ export const createUser = async (userData: UserFormData) => {
 // Delete a user
 export const deleteUser = async (userId: string) => {
   try {
-    // First, delete from profiles (this will cascade delete due to RLS)
+    // First, delete from auth using admin API
+    const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+    if (authError) throw authError;
+
+    // Then delete from profiles (this will cascade delete due to RLS)
     const { error: profileError } = await supabase
       .from("profiles")
       .delete()
       .eq("id", userId);
 
     if (profileError) throw profileError;
-
-    // Then delete from auth using admin API
-    const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-    if (authError) throw authError;
 
   } catch (error) {
     console.error("Error deleting user:", error);

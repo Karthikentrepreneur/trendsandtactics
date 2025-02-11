@@ -1,14 +1,16 @@
+
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import EmployeeForm from "./EmployeeForm";
 import EmployeeList from "./EmployeeList";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, UserFormData } from "@/types/user";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const UserManagement = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: employees = [], refetch } = useQuery({
     queryKey: ['employees'],
@@ -65,7 +67,7 @@ const UserManagement = () => {
           description: "Employee created successfully",
         });
         
-        refetch(); // Refresh the employee list
+        queryClient.invalidateQueries({ queryKey: ['employees'] });
       }
     } catch (error) {
       console.error("Error creating employee:", error);
@@ -80,11 +82,7 @@ const UserManagement = () => {
   };
 
   const handleEmployeeDeleted = async () => {
-    await refetch();
-    toast({
-      title: "Success",
-      description: "Employee deleted successfully",
-    });
+    await queryClient.invalidateQueries({ queryKey: ['employees'] });
   };
 
   return (
@@ -103,3 +101,4 @@ const UserManagement = () => {
 };
 
 export default UserManagement;
+
