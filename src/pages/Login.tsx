@@ -1,9 +1,11 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -16,48 +18,26 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // First check if the user exists
-      const { data: existingUser, error: checkError } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('email', email)
-        .single();
-
-      if (!existingUser) {
-        toast.error("Login failed", {
-          description: "No account found with this email. Please check your credentials.",
-        });
-        setIsLoading(false);
-        return;
-      }
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          toast.error("Login failed", {
-            description: "Invalid email or password. Please try again.",
-          });
-        } else {
-          toast.error("Login failed", {
-            description: error.message,
-          });
-        }
-        return;
-      }
+      if (error) throw error;
 
       if (data.user) {
-        // Fetch user profile to get role
+        // After successful login, fetch the user's profile
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', data.user.id)
           .single();
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          console.error('Error fetching profile:', profileError);
+          toast.error("Error fetching user profile");
+          return;
+        }
 
         // Route based on user role
         if (profileData?.role === 'admin') {
@@ -71,7 +51,7 @@ const Login = () => {
         });
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Login error:', error);
       toast.error("Login failed", {
         description: error instanceof Error ? error.message : "Please check your credentials and try again",
       });
@@ -126,13 +106,13 @@ const Login = () => {
                 placeholder="Enter your password"
               />
             </div>
-            <button
+            <Button
               type="submit"
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md transition-colors disabled:opacity-50"
+              className="w-full"
               disabled={isLoading}
             >
               {isLoading ? "Signing in..." : "Sign In"}
-            </button>
+            </Button>
           </form>
         </CardContent>
       </Card>
