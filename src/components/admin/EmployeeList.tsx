@@ -1,3 +1,4 @@
+
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,18 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@/types/user";
 import { useEffect } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { deleteUser } from "@/services/userService";
 
 interface EmployeeListProps {
   employees: User[];
@@ -47,18 +60,7 @@ const EmployeeList = ({ employees, onEmployeeDeleted, loading }: EmployeeListPro
   const handleDeleteEmployee = async (userId: string) => {
     try {
       console.log('Deleting employee:', userId);
-      
-      // Delete from profiles (this should cascade due to foreign key)
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
-
-      if (profileError) {
-        console.error('Error deleting profile:', profileError);
-        throw profileError;
-      }
-
+      await deleteUser(userId);
       onEmployeeDeleted();
       
       toast({
@@ -69,7 +71,7 @@ const EmployeeList = ({ employees, onEmployeeDeleted, loading }: EmployeeListPro
       console.error("Error deleting employee:", error);
       toast({
         title: "Error",
-        description: "Failed to delete employee",
+        description: error instanceof Error ? error.message : "Failed to delete employee",
         variant: "destructive",
       });
     }
@@ -131,13 +133,34 @@ const EmployeeList = ({ employees, onEmployeeDeleted, loading }: EmployeeListPro
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => employee.id && handleDeleteEmployee(employee.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete the employee
+                              account and remove their data from the system.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => employee.id && handleDeleteEmployee(employee.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))}
