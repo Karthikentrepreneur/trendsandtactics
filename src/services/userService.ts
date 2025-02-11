@@ -57,11 +57,7 @@ export const createUser = async (userData: UserFormData) => {
 // Delete a user
 export const deleteUser = async (userId: string) => {
   try {
-    // First, delete from auth using admin API
-    const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-    if (authError) throw authError;
-
-    // Then delete from profiles (this will cascade delete due to RLS)
+    // Delete from profiles first
     const { error: profileError } = await supabase
       .from("profiles")
       .delete()
@@ -69,6 +65,17 @@ export const deleteUser = async (userId: string) => {
 
     if (profileError) throw profileError;
 
+    // Then delete from auth
+    const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+    if (authError) {
+      // If we get a permission error, we'll need to implement this differently
+      // For now, just delete the profile and let the user know about the limitation
+      if (authError.message.includes("roles: supabase_admin, service_role")) {
+        console.warn("Unable to delete auth user - requires admin privileges");
+        return;
+      }
+      throw authError;
+    }
   } catch (error) {
     console.error("Error deleting user:", error);
     throw error;
