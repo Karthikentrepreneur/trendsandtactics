@@ -38,3 +38,14 @@ export interface DocumentUpload {
   type: string;
   file: File | null;
 }
+
+export interface SalaryInformation {
+  id: string;
+  employee_id: string | null;
+  gross_salary: number;
+  epf_percentage: number | null;
+  net_pay: number | null;
+  total_deduction: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+}

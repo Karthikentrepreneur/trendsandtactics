@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
@@ -13,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import type { User } from "@/types/user";
-import type { BankInformation, ProfessionalExperience, DocumentUpload, SalaryInformation } from "@/types/employee";
+import type { BankInformation, ProfessionalExperience, DocumentUpload, EmployeeDocument, SalaryInformation } from "@/types/employee";
 import { Loader2, Plus, Trash2, Upload } from "lucide-react";
 
 const EmployeePerformance = () => {
@@ -23,7 +24,7 @@ const EmployeePerformance = () => {
   const [bankInfo, setBankInfo] = useState<BankInformation | null>(null);
   const [experiences, setExperiences] = useState<ProfessionalExperience[]>([]);
   const [salaryInfo, setSalaryInfo] = useState<SalaryInformation | null>(null);
-  const [documents, setDocuments] = useState<DocumentUpload[]>([]);
+  const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -32,11 +33,15 @@ const EmployeePerformance = () => {
 
   const fetchEmployeeData = async () => {
     try {
-      const { data: employeeData } = await supabase
+      if (!employeeId) return;
+      
+      const { data: employeeData, error: employeeError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", employeeId)
         .single();
+
+      if (employeeError) throw employeeError;
 
       if (employeeData) {
         setEmployee(employeeData);
@@ -50,11 +55,17 @@ const EmployeePerformance = () => {
       setLoading(false);
     } catch (error) {
       console.error("Error fetching employee:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch employee data",
+        variant: "destructive",
+      });
       setLoading(false);
     }
   };
 
   const fetchBankInfo = async () => {
+    if (!employeeId) return;
     const { data } = await supabase
       .from("bank_information")
       .select("*")
@@ -64,6 +75,7 @@ const EmployeePerformance = () => {
   };
 
   const fetchExperiences = async () => {
+    if (!employeeId) return;
     const { data } = await supabase
       .from("professional_experience")
       .select("*")
@@ -72,6 +84,7 @@ const EmployeePerformance = () => {
   };
 
   const fetchSalaryInfo = async () => {
+    if (!employeeId) return;
     const { data } = await supabase
       .from("salary_information")
       .select("*")
@@ -81,27 +94,18 @@ const EmployeePerformance = () => {
   };
 
   const fetchDocuments = async () => {
+    if (!employeeId) return;
     const { data } = await supabase
       .from("employee_documents")
       .select("*")
       .eq("employee_id", employeeId);
-    
-    if (data) {
-      const formattedDocuments: DocumentUpload[] = data.map(doc => ({
-        id: doc.id,
-        employee_id: doc.employee_id,
-        document_name: doc.document_name,
-        document_type: doc.document_type,
-        file_path: doc.file_path,
-        uploaded_by: doc.uploaded_by,
-        uploaded_at: doc.uploaded_at
-      }));
-      setDocuments(formattedDocuments);
-    }
+    setDocuments(data || []);
   };
 
   const updatePersonalInfo = async (formData: any) => {
     try {
+      if (!employeeId) return;
+
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -136,6 +140,8 @@ const EmployeePerformance = () => {
 
   const updateBankInfo = async (formData: any) => {
     try {
+      if (!employeeId) return;
+
       const { error } = await supabase
         .from("bank_information")
         .upsert({
@@ -168,6 +174,8 @@ const EmployeePerformance = () => {
 
   const addExperience = async (formData: any) => {
     try {
+      if (!employeeId) return;
+
       const { error } = await supabase
         .from("professional_experience")
         .insert({
@@ -175,7 +183,7 @@ const EmployeePerformance = () => {
           company_name: formData.company_name,
           position: formData.position,
           start_date: formData.start_date,
-          end_date: formData.end_date,
+          end_date: formData.end_date || null,
           responsibilities: formData.responsibilities,
         });
 
@@ -224,6 +232,8 @@ const EmployeePerformance = () => {
 
   const uploadDocument = async (file: File, name: string, type: string) => {
     try {
+      if (!employeeId) return;
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${employeeId}/${fileName}`;
@@ -264,14 +274,16 @@ const EmployeePerformance = () => {
 
   const updateSalaryInfo = async (formData: any) => {
     try {
+      if (!employeeId) return;
+
       const { error } = await supabase
         .from("salary_information")
         .upsert({
           employee_id: employeeId,
-          gross_salary: formData.gross_salary,
-          epf_percentage: formData.epf_percentage,
-          net_pay: formData.net_pay,
-          total_deduction: formData.total_deduction,
+          gross_salary: parseFloat(formData.gross_salary),
+          epf_percentage: formData.epf_percentage ? parseFloat(formData.epf_percentage) : null,
+          net_pay: formData.net_pay ? parseFloat(formData.net_pay) : null,
+          total_deduction: formData.total_deduction ? parseFloat(formData.total_deduction) : null,
         });
 
       if (error) throw error;
