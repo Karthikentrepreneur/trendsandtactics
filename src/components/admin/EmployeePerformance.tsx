@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
@@ -108,7 +107,8 @@ const EmployeePerformance = () => {
 
       const { error } = await supabase
         .from("profiles")
-        .update({
+        .upsert({
+          id: employeeId,
           name: formData.name,
           email: formData.email,
           date_of_birth: formData.date_of_birth,
@@ -117,8 +117,8 @@ const EmployeePerformance = () => {
           address: formData.address,
           contact_number: formData.contact_number,
           emergency_contact: formData.emergency_contact,
-        })
-        .eq("id", employeeId);
+          date_of_joining: formData.date_of_joining,
+        });
 
       if (error) throw error;
 
@@ -375,6 +375,10 @@ const EmployeePerformance = () => {
                   <div className="space-y-2">
                     <Label htmlFor="emergency_contact">Emergency Contact</Label>
                     <Input id="emergency_contact" name="emergency_contact" defaultValue={employee.emergency_contact || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="date_of_joining">Date of Joining</Label>
+                    <Input id="date_of_joining" name="date_of_joining" defaultValue={employee.date_of_joining || ''} />
                   </div>
                 </div>
                 <Button type="submit">Update Personal Information</Button>
