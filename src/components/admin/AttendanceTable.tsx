@@ -1,115 +1,162 @@
 
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { useState, useEffect } from "react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Eye } from "lucide-react";
+import { AttendanceRecord } from "@/services/attendance/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@/types/user";
-import { startOfMonth, endOfMonth, format } from "date-fns";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { attendanceService } from "@/services/attendanceService";
+import { Badge } from "@/components/ui/badge";
+import { format, parseISO } from "date-fns";
+import { Card, CardContent } from "@/components/ui/card";
 
-const Payroll = () => {
-  const [employees, setEmployees] = useState<User[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
+interface AttendanceTableProps {
+  showTodayOnly?: boolean;
+  onViewDetails: (log: AttendanceRecord) => void;
+  userEmail: string;
+}
+
+const AttendanceTable = ({ showTodayOnly = false, onViewDetails, userEmail }: AttendanceTableProps) => {
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
-    const fetchEmployees = async () => {
+    const fetchAttendanceLogs = async () => {
       try {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('name');
-        
-        if (data) {
-          setEmployees(data);
+        const logs = await attendanceService.getAttendanceLogs();
+        const filteredLogs = logs.filter(log => 
+          log.email?.toLowerCase() === userEmail?.toLowerCase()
+        );
+
+        if (showTodayOnly) {
+          const today = new Date().toDateString();
+          const todayLogs = filteredLogs.filter(log => 
+            new Date(log.date).toDateString() === today
+          );
+          setAttendanceLogs(todayLogs);
+        } else {
+          setAttendanceLogs(filteredLogs);
         }
       } catch (error) {
-        console.error('Error fetching employees:', error);
+        console.error('Error fetching attendance logs:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchEmployees();
-  }, []);
+    if (userEmail) {
+      fetchAttendanceLogs();
+    }
+  }, [userEmail, showTodayOnly]);
 
-  const filteredEmployees = employees.filter((employee) =>
-    employee.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    employee.employee_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    employee.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const formatTime = (dateTimeString: string) => {
+    try {
+      const date = parseISO(dateTimeString);
+      return format(date, "hh:mm a");
+    } catch (error) {
+      return "N/A";
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = parseISO(dateString);
+      return format(date, "MMM dd, yyyy");
+    } catch (error) {
+      return "Invalid date";
+    }
+  };
+
+  const getAttendanceStatus = (effectiveHours: number) => {
+    if (effectiveHours >= 8) {
+      return <Badge className="bg-green-500">Full Day</Badge>;
+    } else if (effectiveHours > 0) {
+      return <Badge className="bg-yellow-500">Partial Day</Badge>;
+    }
+    return <Badge className="bg-red-500">Absent</Badge>;
+  };
 
   if (loading) {
+    return <div className="flex justify-center items-center h-[50vh]">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+    </div>;
+  }
+
+  if (attendanceLogs.length === 0) {
+    return <div className="text-center text-gray-500 p-4">No attendance records found.</div>;
+  }
+
+  if (isMobile) {
     return (
-      <div className="flex justify-center items-center h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="space-y-4">
+        {attendanceLogs.map((log, index) => (
+          <Card key={index} className="w-full">
+            <CardContent className="p-4 space-y-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-medium">{formatDate(log.date)}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Check In: {formatTime(log.checkIn)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Check Out: {formatTime(log.checkOut)}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  {getAttendanceStatus(log.effectiveHours)}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onViewDetails(log)}
+                    className="px-2"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-2 sm:p-4 md:p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Payroll Management</h2>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <Input
-          placeholder="Search employees..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full sm:max-w-sm"
-        />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Employee List</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[calc(100vh-300px)] w-full">
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredEmployees.map((employee) => (
-                <Card
-                  key={employee.id}
-                  className="cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => navigate(`/admin/payroll/${employee.id}`)}
+    <ScrollArea className="h-[600px] rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Date</TableHead>
+            <TableHead>Check In</TableHead>
+            <TableHead>Check Out</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {attendanceLogs.map((log, index) => (
+            <TableRow key={index}>
+              <TableCell>{formatDate(log.date)}</TableCell>
+              <TableCell>{formatTime(log.checkIn)}</TableCell>
+              <TableCell>{formatTime(log.checkOut)}</TableCell>
+              <TableCell>{getAttendanceStatus(log.effectiveHours)}</TableCell>
+              <TableCell className="text-right">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onViewDetails(log)}
                 >
-                  <CardContent className="p-3 sm:p-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                      {employee.profile_photo ? (
-                        <img
-                          src={employee.profile_photo}
-                          alt={employee.name || ''}
-                          className="h-12 w-12 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xl font-medium text-gray-600">
-                            {employee.name?.charAt(0)}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-base sm:text-lg truncate">{employee.name}</h3>
-                        <p className="text-sm text-muted-foreground truncate">{employee.designation}</p>
-                        <p className="text-sm text-muted-foreground truncate mt-1">ID: {employee.employee_id}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {filteredEmployees.length === 0 && (
-                <p className="text-center text-muted-foreground col-span-full p-4">No employees found</p>
-              )}
-            </div>
-          </ScrollArea>
-        </CardContent>
-      </Card>
-    </div>
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </ScrollArea>
   );
 };
 
-export default Payroll;
+export default AttendanceTable;
