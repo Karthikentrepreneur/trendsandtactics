@@ -1,7 +1,5 @@
-
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
 import {
   Tabs,
   TabsContent,
@@ -15,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import type { User } from "@/types/user";
-import type { BankInformation, ProfessionalExperience, DocumentUpload } from "@/types/employee";
+import type { BankInformation, ProfessionalExperience, DocumentUpload, SalaryInformation } from "@/types/employee";
 import { Loader2, Plus, Trash2, Upload } from "lucide-react";
 
 const EmployeePerformance = () => {
@@ -24,7 +22,7 @@ const EmployeePerformance = () => {
   const [loading, setLoading] = useState(true);
   const [bankInfo, setBankInfo] = useState<BankInformation | null>(null);
   const [experiences, setExperiences] = useState<ProfessionalExperience[]>([]);
-  const [salaryInfo, setSalaryInfo] = useState<any>(null);
+  const [salaryInfo, setSalaryInfo] = useState<SalaryInformation | null>(null);
   const [documents, setDocuments] = useState<DocumentUpload[]>([]);
   const { toast } = useToast();
 
@@ -87,7 +85,19 @@ const EmployeePerformance = () => {
       .from("employee_documents")
       .select("*")
       .eq("employee_id", employeeId);
-    setDocuments(data || []);
+    
+    if (data) {
+      const formattedDocuments: DocumentUpload[] = data.map(doc => ({
+        id: doc.id,
+        employee_id: doc.employee_id,
+        document_name: doc.document_name,
+        document_type: doc.document_type,
+        file_path: doc.file_path,
+        uploaded_by: doc.uploaded_by,
+        uploaded_at: doc.uploaded_at
+      }));
+      setDocuments(formattedDocuments);
+    }
   };
 
   const updatePersonalInfo = async (formData: any) => {
