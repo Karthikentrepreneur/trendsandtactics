@@ -1,893 +1,603 @@
-import { useState, useEffect } from "react";
+
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { format, parseISO, startOfMonth, endOfMonth, isAfter, isSunday, getDaysInMonth } from "date-fns";
+import { useForm } from "react-hook-form";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, CalendarDays, CheckCircle2, Clock, Download, XCircle } from "lucide-react";
-import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { User, Task } from "@/types/user";
-import type { ProfessionalExperience, EmployeeDocument, BankInformation, DocumentUpload } from "@/types/employee";
-import AttendanceTable from "./AttendanceTable";
-import { StatCard } from "@/components/employee/dashboard/StatCard";
-import { attendanceService } from "@/services/attendanceService";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { useToast } from "@/components/ui/use-toast";
+import type { User } from "@/types/user";
+import type { BankInformation, ProfessionalExperience, DocumentUpload } from "@/types/employee";
+import { Loader2, Plus, Trash2, Upload } from "lucide-react";
 
 const EmployeePerformance = () => {
   const { employeeId } = useParams();
   const [employee, setEmployee] = useState<User | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
-  const [analytics, setAnalytics] = useState({
-    presentDays: 0,
-    absentDays: 0,
-    completedTasks: 0,
-    pendingTasks: 0
-  });
-  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [profileData, setProfileData] = useState({
-    date_of_birth: "",
-    fathers_name: "",
-    mothers_name: "",
-    address: "",
-    contact_number: "",
-    emergency_contact: ""
-  });
-  const [isEditingBank, setIsEditingBank] = useState(false);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const queryClient = useQueryClient();
-  const [bankData, setBankData] = useState({
-    bank_name: "",
-    branch_name: "",
-    bank_address: "",
-    account_number: "",
-    account_type: "",
-    ifsc_code: ""
-  });
-  const [documentUpload, setDocumentUpload] = useState<DocumentUpload>({
-    name: "",
-    type: "",
-    file: null
-  });
-  const [professionalExperience, setProfessionalExperience] = useState<ProfessionalExperience[]>([]);
-  const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
   const [bankInfo, setBankInfo] = useState<BankInformation | null>(null);
-
-  const getMonthOptions = () => {
-    const options = [];
-    const currentDate = new Date();
-    for (let i = 0; i < 12; i++) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-      const value = format(date, 'yyyy-MM');
-      const label = format(date, 'MMMM yyyy');
-      options.push({ value, label });
-    }
-    return options;
-  };
-
-  const calculateSundaysInMonth = (year: number, month: number, endDay: number) => {
-    let sundays = 0;
-    for (let day = 1; day <= endDay; day++) {
-      const date = new Date(year, month - 1, day);
-      if (isSunday(date)) {
-        sundays++;
-      }
-    }
-    return sundays;
-  };
+  const [experiences, setExperiences] = useState<ProfessionalExperience[]>([]);
+  const [salaryInfo, setSalaryInfo] = useState<any>(null);
+  const [documents, setDocuments] = useState<DocumentUpload[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const fetchEmployeeData = async () => {
-      try {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', employeeId)
-          .single();
-
-        if (profileData) {
-          setEmployee(profileData);
-
-          const [year, month] = selectedMonth.split('-');
-          const selectedDate = new Date(parseInt(year), parseInt(month) - 1);
-          const startDate = startOfMonth(selectedDate);
-          const endDate = endOfMonth(selectedDate);
-          const today = new Date();
-
-          const logs = await attendanceService.getAttendanceLogs();
-          const monthLogs = logs.filter(log => {
-            const logDate = new Date(log.date);
-            return logDate >= startDate && logDate <= endDate && 
-                   log.email?.toLowerCase() === profileData.email?.toLowerCase();
-          });
-
-          const presentDays = monthLogs.filter(log => log.effectiveHours > 0).length;
-          
-          const daysInMonth = getDaysInMonth(selectedDate);
-          const lastDayToConsider = isAfter(endDate, today) ? today.getDate() : daysInMonth;
-          
-          const sundaysCount = calculateSundaysInMonth(parseInt(year), parseInt(month), lastDayToConsider);
-          const casualLeaveAllowance = 1;
-
-          const absentDays = Math.max(0, lastDayToConsider - presentDays - sundaysCount - casualLeaveAllowance);
-
-          const { data: tasksData } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('assigned_to', employeeId)
-            .gte('created_at', startDate.toISOString())
-            .lte('created_at', endDate.toISOString())
-            .order('created_at', { ascending: false });
-
-          if (tasksData) {
-            setTasks(tasksData);
-            const completedTasks = tasksData.filter(task => task.status === 'completed').length;
-            const pendingTasks = tasksData.filter(task => task.status !== 'completed').length;
-
-            setAnalytics({
-              presentDays,
-              absentDays,
-              completedTasks,
-              pendingTasks
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching employee data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (employeeId) {
-      fetchEmployeeData();
-    }
-  }, [employeeId, selectedMonth]);
-
-  useEffect(() => {
-    const fetchLeaveRequests = async () => {
-      if (employeeId) {
-        const { data, error } = await supabase
-          .from('leave_requests')
-          .select('*')
-          .eq('employee_id', employeeId)
-          .order('created_at', { ascending: false });
-        
-        if (error) {
-          console.error('Error fetching leave requests:', error);
-          return;
-        }
-        
-        setLeaveRequests(data || []);
-      }
-    };
-
-    fetchLeaveRequests();
+    fetchEmployeeData();
   }, [employeeId]);
 
-  useEffect(() => {
-    const fetchProfessionalExperience = async () => {
-      if (!employeeId) return;
-      const { data, error } = await supabase
-        .from('professional_experience')
-        .select('*')
-        .eq('employee_id', employeeId)
-        .order('start_date', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching professional experience:', error);
-        return;
-      }
-      setProfessionalExperience(data || []);
-    };
-
-    fetchProfessionalExperience();
-  }, [employeeId]);
-
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      if (!employeeId) return;
-      const { data, error } = await supabase
-        .from('employee_documents')
-        .select('*')
-        .eq('employee_id', employeeId)
-        .order('uploaded_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching documents:', error);
-        return;
-      }
-      setDocuments(data || []);
-    };
-
-    fetchDocuments();
-  }, [employeeId]);
-
-  useEffect(() => {
-    const fetchBankInfo = async () => {
-      if (!employeeId) return;
-      const { data, error } = await supabase
-        .from('bank_information')
-        .select('*')
-        .eq('employee_id', employeeId)
+  const fetchEmployeeData = async () => {
+    try {
+      const { data: employeeData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", employeeId)
         .single();
-      
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching bank information:', error);
-        return;
+
+      if (employeeData) {
+        setEmployee(employeeData);
+        await Promise.all([
+          fetchBankInfo(),
+          fetchExperiences(),
+          fetchSalaryInfo(),
+          fetchDocuments(),
+        ]);
       }
-      setBankInfo(data || null);
-    };
-
-    fetchBankInfo();
-  }, [employeeId]);
-
-  useEffect(() => {
-    if (employee) {
-      setProfileData({
-        date_of_birth: employee.date_of_birth || "",
-        fathers_name: employee.fathers_name || "",
-        mothers_name: employee.mothers_name || "",
-        address: employee.address || "",
-        contact_number: employee.contact_number || "",
-        emergency_contact: employee.emergency_contact || ""
-      });
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching employee:", error);
+      setLoading(false);
     }
-  }, [employee]);
+  };
 
-  useEffect(() => {
-    if (bankInfo) {
-      setBankData({
-        bank_name: bankInfo.bank_name,
-        branch_name: bankInfo.branch_name,
-        bank_address: bankInfo.bank_address || "",
-        account_number: bankInfo.account_number,
-        account_type: bankInfo.account_type,
-        ifsc_code: bankInfo.ifsc_code
-      });
-    }
-  }, [bankInfo]);
+  const fetchBankInfo = async () => {
+    const { data } = await supabase
+      .from("bank_information")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .single();
+    setBankInfo(data);
+  };
 
-  const handleProfileUpdate = async () => {
+  const fetchExperiences = async () => {
+    const { data } = await supabase
+      .from("professional_experience")
+      .select("*")
+      .eq("employee_id", employeeId);
+    setExperiences(data || []);
+  };
+
+  const fetchSalaryInfo = async () => {
+    const { data } = await supabase
+      .from("salary_information")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .single();
+    setSalaryInfo(data);
+  };
+
+  const fetchDocuments = async () => {
+    const { data } = await supabase
+      .from("employee_documents")
+      .select("*")
+      .eq("employee_id", employeeId);
+    setDocuments(data || []);
+  };
+
+  const updatePersonalInfo = async (formData: any) => {
     try {
       const { error } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({
-          date_of_birth: profileData.date_of_birth,
-          fathers_name: profileData.fathers_name,
-          mothers_name: profileData.mothers_name,
-          address: profileData.address,
-          contact_number: profileData.contact_number,
-          emergency_contact: profileData.emergency_contact
+          name: formData.name,
+          email: formData.email,
+          date_of_birth: formData.date_of_birth,
+          fathers_name: formData.fathers_name,
+          mothers_name: formData.mothers_name,
+          address: formData.address,
+          contact_number: formData.contact_number,
+          emergency_contact: formData.emergency_contact,
         })
-        .eq('id', employeeId);
+        .eq("id", employeeId);
 
       if (error) throw error;
 
-      queryClient.invalidateQueries({ queryKey: ['employee'] });
-      setIsEditing(false);
-      toast.success("Profile updated successfully");
+      toast({
+        title: "Success",
+        description: "Personal information updated successfully",
+      });
+      
+      await fetchEmployeeData();
     } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error("Failed to update profile");
+      console.error("Error updating personal info:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update personal information",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleBankUpdate = async () => {
+  const updateBankInfo = async (formData: any) => {
     try {
       const { error } = await supabase
-        .from('bank_information')
+        .from("bank_information")
         .upsert({
           employee_id: employeeId,
-          ...bankData
+          bank_name: formData.bank_name,
+          branch_name: formData.branch_name,
+          account_number: formData.account_number,
+          ifsc_code: formData.ifsc_code,
+          account_type: formData.account_type,
+          bank_address: formData.bank_address,
         });
 
       if (error) throw error;
 
-      queryClient.invalidateQueries({ queryKey: ['bank_info'] });
-      setIsEditingBank(false);
-      toast.success("Bank information updated successfully");
+      toast({
+        title: "Success",
+        description: "Bank information updated successfully",
+      });
+      
+      await fetchBankInfo();
     } catch (error) {
-      console.error('Error updating bank information:', error);
-      toast.error("Failed to update bank information");
+      console.error("Error updating bank info:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update bank information",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleDocumentUpload = async () => {
-    if (!documentUpload.file || !employeeId) {
-      toast.error("Please select a file and provide all required information");
-      return;
-    }
-
+  const addExperience = async (formData: any) => {
     try {
-      setUploading(true);
-      const fileExt = documentUpload.file.name.split('.').pop();
-      const filePath = `${employeeId}/${crypto.randomUUID()}.${fileExt}`;
+      const { error } = await supabase
+        .from("professional_experience")
+        .insert({
+          employee_id: employeeId,
+          company_name: formData.company_name,
+          position: formData.position,
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          responsibilities: formData.responsibilities,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Professional experience added successfully",
+      });
+      
+      await fetchExperiences();
+    } catch (error) {
+      console.error("Error adding experience:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add professional experience",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteExperience = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("professional_experience")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Experience deleted successfully",
+      });
+      
+      await fetchExperiences();
+    } catch (error) {
+      console.error("Error deleting experience:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete experience",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const uploadDocument = async (file: File, name: string, type: string) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${employeeId}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('employee-documents')
-        .upload(filePath, documentUpload.file);
+        .upload(filePath, file);
 
       if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('employee-documents')
-        .getPublicUrl(filePath);
 
       const { error: dbError } = await supabase
         .from('employee_documents')
         .insert({
           employee_id: employeeId,
-          document_name: documentUpload.name,
-          document_type: documentUpload.type,
-          file_path: publicUrl,
-          uploaded_by: (await supabase.auth.getUser()).data.user?.id
+          document_name: name,
+          document_type: type,
+          file_path: filePath,
+          uploaded_by: employeeId,
         });
 
       if (dbError) throw dbError;
 
-      queryClient.invalidateQueries({ queryKey: ['documents'] });
-      setShowUploadDialog(false);
-      setDocumentUpload({ name: "", type: "", file: null });
-      toast.success("Document uploaded successfully");
+      toast({
+        title: "Success",
+        description: "Document uploaded successfully",
+      });
+      
+      await fetchDocuments();
     } catch (error) {
-      console.error('Error uploading document:', error);
-      toast.error("Failed to upload document");
-    } finally {
-      setUploading(false);
+      console.error("Error uploading document:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload document",
+        variant: "destructive",
+      });
     }
   };
 
-  const generatePDF = () => {
-    if (!employee) return;
+  const updateSalaryInfo = async (formData: any) => {
+    try {
+      const { error } = await supabase
+        .from("salary_information")
+        .upsert({
+          employee_id: employeeId,
+          gross_salary: formData.gross_salary,
+          epf_percentage: formData.epf_percentage,
+          net_pay: formData.net_pay,
+          total_deduction: formData.total_deduction,
+        });
 
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.width;
+      if (error) throw error;
 
-    doc.setFontSize(16);
-    doc.text(`Performance Report - ${employee.name}`, pageWidth / 2, 15, { align: 'center' });
-    doc.setFontSize(12);
-    doc.text(`Month: ${format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy')}`, pageWidth / 2, 25, { align: 'center' });
-
-    doc.text(`Employee ID: ${employee.employee_id}`, 20, 35);
-    doc.text(`Designation: ${employee.designation}`, 20, 42);
-
-    doc.text('Performance Summary:', 20, 55);
-    doc.text(`Present Days: ${analytics.presentDays}`, 30, 62);
-    doc.text(`Absent Days: ${analytics.absentDays}`, 30, 69);
-    doc.text(`Completed Tasks: ${analytics.completedTasks}`, 30, 76);
-    doc.text(`Pending Tasks: ${analytics.pendingTasks}`, 30, 83);
-
-    attendanceService.getAttendanceLogs().then((logs) => {
-      const [year, month] = selectedMonth.split('-');
-      const selectedDate = new Date(parseInt(year), parseInt(month) - 1);
-      const startDate = startOfMonth(selectedDate);
-      const endDate = endOfMonth(selectedDate);
-
-      const monthLogs = logs.filter(log => {
-        const logDate = new Date(log.date);
-        return logDate >= startDate && 
-               logDate <= endDate && 
-               log.email?.toLowerCase() === employee.email?.toLowerCase();
+      toast({
+        title: "Success",
+        description: "Salary information updated successfully",
       });
-
-      doc.text('Attendance Records:', 20, 100);
-      const attendanceData = monthLogs.map(log => [
-        format(new Date(log.date), 'MMM dd, yyyy'),
-        format(new Date(log.checkIn), 'hh:mm a'),
-        format(new Date(log.checkOut), 'hh:mm a'),
-        `${log.effectiveHours} hours`,
-        log.effectiveHours >= 8 ? 'Full Day' : log.effectiveHours > 0 ? 'Partial Day' : 'Absent'
-      ]);
-
-      autoTable(doc, {
-        startY: 105,
-        head: [['Date', 'Check In', 'Check Out', 'Hours Worked', 'Status']],
-        body: attendanceData,
+      
+      await fetchSalaryInfo();
+    } catch (error) {
+      console.error("Error updating salary info:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update salary information",
+        variant: "destructive",
       });
-
-      doc.addPage();
-      doc.text('Tasks Overview:', 20, 20);
-      const tasksData = tasks.map(task => [
-        task.title,
-        task.description || 'N/A',
-        task.status,
-        format(new Date(task.due_date || ''), 'MMM dd, yyyy')
-      ]);
-
-      autoTable(doc, {
-        startY: 25,
-        head: [['Task Title', 'Description', 'Status', 'Due Date']],
-        body: tasksData,
-      });
-
-      const fileName = `${employee.name}_performance_report_${selectedMonth}.pdf`;
-      doc.save(fileName);
-      toast.success("Report downloaded successfully");
-    }).catch(error => {
-      console.error('Error generating PDF:', error);
-      toast.error("Failed to generate report");
-    });
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
   if (!employee) {
-    return <div>Employee not found</div>;
+    return (
+      <div className="text-center p-4">
+        <h2 className="text-2xl font-bold">Employee not found</h2>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Employee Performance</h2>
-        <div className="flex items-center gap-4">
-          <Select
-            value={selectedMonth}
-            onValueChange={setSelectedMonth}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {getMonthOptions().map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button 
-            onClick={generatePDF}
-            className="flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Download Report
-          </Button>
-        </div>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            {employee?.profile_photo && (
-              <img
-                src={employee.profile_photo}
-                alt={employee.name || ''}
-                className="h-16 w-16 rounded-full object-cover"
-              />
-            )}
-            <div>
-              <CardTitle>{employee?.name}</CardTitle>
-              <p className="text-sm text-muted-foreground">{employee?.designation}</p>
-              <p className="text-sm text-muted-foreground">Employee ID: {employee?.employee_id}</p>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-4">
-        <StatCard
-          title="Present Days"
-          value={analytics.presentDays}
-          icon={CheckCircle2}
-        />
-        <StatCard
-          title="Absent Days"
-          value={analytics.absentDays}
-          icon={XCircle}
-        />
-        <StatCard
-          title="Completed Tasks"
-          value={analytics.completedTasks}
-          icon={CalendarDays}
-        />
-        <StatCard
-          title="Pending Tasks"
-          value={analytics.pendingTasks}
-          icon={Clock}
-        />
-      </div>
-
-      <Tabs defaultValue="attendance" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="attendance">Attendance Records</TabsTrigger>
-          <TabsTrigger value="tasks">Task Status</TabsTrigger>
-          <TabsTrigger value="leaves">Leave Requests</TabsTrigger>
-          <TabsTrigger value="profile">Profile Information</TabsTrigger>
+    <div className="container mx-auto py-6">
+      <Tabs defaultValue="personal" className="w-full">
+        <TabsList className="grid grid-cols-5 gap-4 w-full">
+          <TabsTrigger value="personal">Personal Information</TabsTrigger>
+          <TabsTrigger value="bank">Bank Information</TabsTrigger>
+          <TabsTrigger value="experience">Professional Experience</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="salary">Salary Information</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="attendance" className="space-y-4">
+        <TabsContent value="personal">
           <Card>
             <CardHeader>
-              <CardTitle>Attendance Records - {format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy')}</CardTitle>
+              <CardTitle>Personal Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <AttendanceTable 
-                showTodayOnly={false} 
-                userEmail={employee?.email || ''} 
-                selectedMonth={selectedMonth}
-              />
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const data = Object.fromEntries(formData);
+                updatePersonalInfo(data);
+              }} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input id="name" name="name" defaultValue={employee.name || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" name="email" defaultValue={employee.email || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="date_of_birth">Date of Birth</Label>
+                    <Input id="date_of_birth" name="date_of_birth" type="date" defaultValue={employee.date_of_birth || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fathers_name">Father's Name</Label>
+                    <Input id="fathers_name" name="fathers_name" defaultValue={employee.fathers_name || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mothers_name">Mother's Name</Label>
+                    <Input id="mothers_name" name="mothers_name" defaultValue={employee.mothers_name || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Address</Label>
+                    <Input id="address" name="address" defaultValue={employee.address || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact_number">Contact Number</Label>
+                    <Input id="contact_number" name="contact_number" defaultValue={employee.contact_number || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="emergency_contact">Emergency Contact</Label>
+                    <Input id="emergency_contact" name="emergency_contact" defaultValue={employee.emergency_contact || ''} />
+                  </div>
+                </div>
+                <Button type="submit">Update Personal Information</Button>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="tasks" className="space-y-4">
+        <TabsContent value="bank">
           <Card>
             <CardHeader>
-              <CardTitle>Task Overview - {format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy')}</CardTitle>
+              <CardTitle>Bank Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[400px]">
-                <div className="space-y-4">
-                  {tasks.map((task) => (
-                    <div key={task.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{task.title}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Due: {new Date(task.due_date || '').toLocaleDateString()}
-                        </p>
-                      </div>
-                      <Badge
-                        className={
-                          task.status === 'completed'
-                            ? 'bg-green-500'
-                            : task.status === 'in-progress'
-                            ? 'bg-yellow-500'
-                            : 'bg-gray-500'
-                        }
-                      >
-                        {task.status}
-                      </Badge>
-                    </div>
-                  ))}
-                  {tasks.length === 0 && (
-                    <p className="text-center text-muted-foreground">No tasks assigned for this month</p>
-                  )}
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const data = Object.fromEntries(formData);
+                updateBankInfo(data);
+              }} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bank_name">Bank Name</Label>
+                    <Input id="bank_name" name="bank_name" defaultValue={bankInfo?.bank_name || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="branch_name">Branch Name</Label>
+                    <Input id="branch_name" name="branch_name" defaultValue={bankInfo?.branch_name || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="account_number">Account Number</Label>
+                    <Input id="account_number" name="account_number" defaultValue={bankInfo?.account_number || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ifsc_code">IFSC Code</Label>
+                    <Input id="ifsc_code" name="ifsc_code" defaultValue={bankInfo?.ifsc_code || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="account_type">Account Type</Label>
+                    <Input id="account_type" name="account_type" defaultValue={bankInfo?.account_type || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bank_address">Bank Address</Label>
+                    <Input id="bank_address" name="bank_address" defaultValue={bankInfo?.bank_address || ''} />
+                  </div>
                 </div>
-              </ScrollArea>
+                <Button type="submit">Update Bank Information</Button>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="leaves" className="space-y-4">
+        <TabsContent value="experience">
           <Card>
-            <CardHeader>
-              <CardTitle>Leave Requests History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px]">
-                <div className="space-y-4">
-                  {leaveRequests.map((request) => (
-                    <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{request.type}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          From: {new Date(request.start_date).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          To: {new Date(request.end_date).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Reason: {request.reason}
-                        </p>
-                      </div>
-                      <Badge
-                        className={
-                          request.status === 'approved'
-                            ? 'bg-green-500'
-                            : request.status === 'rejected'
-                            ? 'bg-red-500'
-                            : 'bg-yellow-500'
-                        }
-                      >
-                        {request.status}
-                      </Badge>
-                    </div>
-                  ))}
-                  {leaveRequests.length === 0 && (
-                    <p className="text-center text-muted-foreground">No leave requests found</p>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="profile" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Personal Information</CardTitle>
-                {!isEditing && (
-                  <Button onClick={() => setIsEditing(true)}>Edit</Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="date_of_birth">Date of Birth</Label>
-                  <Input
-                    id="date_of_birth"
-                    type="date"
-                    value={profileData.date_of_birth}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, date_of_birth: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fathers_name">Father's Name</Label>
-                  <Input
-                    id="fathers_name"
-                    value={profileData.fathers_name}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, fathers_name: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="mothers_name">Mother's Name</Label>
-                  <Input
-                    id="mothers_name"
-                    value={profileData.mothers_name}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, mothers_name: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    value={profileData.address}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contact_number">Contact Number</Label>
-                  <Input
-                    id="contact_number"
-                    value={profileData.contact_number}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, contact_number: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="emergency_contact">Emergency Contact</Label>
-                  <Input
-                    id="emergency_contact"
-                    value={profileData.emergency_contact}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, emergency_contact: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
-              </div>
-              {isEditing && (
-                <div className="flex justify-end gap-4 mt-6">
-                  <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
-                  <Button onClick={handleProfileUpdate}>Save Changes</Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Professional Experience</CardTitle>
+              <Button onClick={() => document.getElementById('add-experience-form')?.classList.toggle('hidden')}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Experience
+              </Button>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[300px]">
-                <div className="space-y-4">
-                  {professionalExperience.map((experience) => (
-                    <div key={experience.id} className="p-4 border rounded-lg">
-                      <h4 className="font-medium">{experience.company_name}</h4>
-                      <p className="text-sm text-muted-foreground">{experience.position}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(experience.start_date), 'MMM yyyy')} - 
-                        {experience.end_date 
-                          ? format(new Date(experience.end_date), 'MMM yyyy')
-                          : 'Present'}
-                      </p>
-                      {experience.responsibilities && (
-                        <p className="mt-2 text-sm">{experience.responsibilities}</p>
-                      )}
-                    </div>
-                  ))}
-                  {professionalExperience.length === 0 && (
-                    <p className="text-center text-muted-foreground">No professional experience records found</p>
-                  )}
+              <form id="add-experience-form" onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const data = Object.fromEntries(formData);
+                addExperience(data);
+                e.currentTarget.reset();
+                e.currentTarget.classList.add('hidden');
+              }} className="space-y-4 hidden border-b pb-4 mb-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="company_name">Company Name</Label>
+                    <Input id="company_name" name="company_name" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="position">Position</Label>
+                    <Input id="position" name="position" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="start_date">Start Date</Label>
+                    <Input id="start_date" name="start_date" type="date" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="end_date">End Date</Label>
+                    <Input id="end_date" name="end_date" type="date" />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="responsibilities">Responsibilities</Label>
+                    <Input id="responsibilities" name="responsibilities" />
+                  </div>
                 </div>
-              </ScrollArea>
+                <Button type="submit">Add Experience</Button>
+              </form>
+
+              <div className="space-y-4">
+                {experiences.map((exp) => (
+                  <Card key={exp.id} className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-semibold">{exp.company_name}</h3>
+                        <p className="text-sm text-gray-600">{exp.position}</p>
+                        <p className="text-sm">
+                          {new Date(exp.start_date).toLocaleDateString()} - 
+                          {exp.end_date ? new Date(exp.end_date).toLocaleDateString() : 'Present'}
+                        </p>
+                        {exp.responsibilities && (
+                          <p className="text-sm mt-2">{exp.responsibilities}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteExperience(exp.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
+        <TabsContent value="documents">
           <Card>
             <CardHeader>
               <CardTitle>Documents</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-end">
-                  <Button onClick={() => setShowUploadDialog(true)}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Document
-                  </Button>
-                </div>
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-4">
-                    {documents.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <h4 className="font-medium">{doc.document_name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Type: {doc.document_type}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Uploaded: {format(new Date(doc.uploaded_at || ''), 'PP')}
-                          </p>
-                        </div>
-                        <Button variant="outline" onClick={() => window.open(doc.file_path, '_blank')}>
-                          View
-                        </Button>
-                      </div>
-                    ))}
-                    {documents.length === 0 && (
-                      <p className="text-center text-muted-foreground">No documents found</p>
-                    )}
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const file = formData.get('file') as File;
+                const name = formData.get('name') as string;
+                const type = formData.get('type') as string;
+                if (file && name && type) {
+                  uploadDocument(file, name, type);
+                  e.currentTarget.reset();
+                }
+              }} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Document Name</Label>
+                    <Input id="name" name="name" required />
                   </div>
-                </ScrollArea>
+                  <div className="space-y-2">
+                    <Label htmlFor="type">Document Type</Label>
+                    <Input id="type" name="type" required />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="file">File</Label>
+                    <Input id="file" name="file" type="file" required />
+                  </div>
+                </div>
+                <Button type="submit">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Document
+                </Button>
+              </form>
+
+              <div className="mt-6 space-y-4">
+                {documents.map((doc: any) => (
+                  <Card key={doc.id} className="p-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-semibold">{doc.document_name}</h3>
+                        <p className="text-sm text-gray-600">{doc.document_type}</p>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        onClick={async () => {
+                          const { data } = await supabase.storage
+                            .from('employee-documents')
+                            .getPublicUrl(doc.file_path);
+                          window.open(data.publicUrl, '_blank');
+                        }}
+                      >
+                        Download
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
+        <TabsContent value="salary">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Bank Information</CardTitle>
-                {!isEditingBank && (
-                  <Button onClick={() => setIsEditingBank(true)}>Edit</Button>
-                )}
-              </div>
+              <CardTitle>Salary Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="bank_name">Bank Name</Label>
-                  <Input
-                    id="bank_name"
-                    value={bankData.bank_name}
-                    onChange={(e) => setBankData(prev => ({ ...prev, bank_name: e.target.value }))}
-                    disabled={!isEditingBank}
-                  />
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const data = Object.fromEntries(formData);
+                updateSalaryInfo(data);
+              }} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="gross_salary">Gross Salary</Label>
+                    <Input
+                      id="gross_salary"
+                      name="gross_salary"
+                      type="number"
+                      defaultValue={salaryInfo?.gross_salary || ''}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="epf_percentage">EPF Percentage</Label>
+                    <Input
+                      id="epf_percentage"
+                      name="epf_percentage"
+                      type="number"
+                      defaultValue={salaryInfo?.epf_percentage || ''}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="total_deduction">Total Deduction</Label>
+                    <Input
+                      id="total_deduction"
+                      name="total_deduction"
+                      type="number"
+                      defaultValue={salaryInfo?.total_deduction || ''}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="net_pay">Net Pay</Label>
+                    <Input
+                      id="net_pay"
+                      name="net_pay"
+                      type="number"
+                      defaultValue={salaryInfo?.net_pay || ''}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="branch_name">Branch Name</Label>
-                  <Input
-                    id="branch_name"
-                    value={bankData.branch_name}
-                    onChange={(e) => setBankData(prev => ({ ...prev, branch_name: e.target.value }))}
-                    disabled={!isEditingBank}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bank_address">Bank Address</Label>
-                  <Input
-                    id="bank_address"
-                    value={bankData.bank_address}
-                    onChange={(e) => setBankData(prev => ({ ...prev, bank_address: e.target.value }))}
-                    disabled={!isEditingBank}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="account_number">Account Number</Label>
-                  <Input
-                    id="account_number"
-                    value={bankData.account_number}
-                    onChange={(e) => setBankData(prev => ({ ...prev, account_number: e.target.value }))}
-                    disabled={!isEditingBank}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="account_type">Account Type</Label>
-                  <Input
-                    id="account_type"
-                    value={bankData.account_type}
-                    onChange={(e) => setBankData(prev => ({ ...prev, account_type: e.target.value }))}
-                    disabled={!isEditingBank}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ifsc_code">IFSC Code</Label>
-                  <Input
-                    id="ifsc_code"
-                    value={bankData.ifsc_code}
-                    onChange={(e) => setBankData(prev => ({ ...prev, ifsc_code: e.target.value }))}
-                    disabled={!isEditingBank}
-                  />
-                </div>
-              </div>
-              {isEditingBank && (
-                <div className="flex justify-end gap-4 mt-6">
-                  <Button variant="outline" onClick={() => setIsEditingBank(false)}>Cancel</Button>
-                  <Button onClick={handleBankUpdate}>Save Changes</Button>
-                </div>
-              )}
+                <Button type="submit">Update Salary Information</Button>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-
-      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Upload Document</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="document_name">Document Name</Label>
-              <Input
-                id="document_name"
-                value={documentUpload.name}
-                onChange={(e) => setDocumentUpload(prev => ({ ...prev, name: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="document_type">Document Type</Label>
-              <Select 
-                value={documentUpload.type}
-                onValueChange={(value) => setDocumentUpload(prev => ({ ...prev, type: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select document type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="id_proof">ID Proof</SelectItem>
-                  <SelectItem value="address_proof">Address Proof</SelectItem>
-                  <SelectItem value="educational">Educational Certificate</SelectItem>
-                  <SelectItem value="experience">Experience Certificate</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="document_file">File</Label>
-              <Input
-                id="document_file"
-                type="file"
-                onChange={(e) => setDocumentUpload(prev => ({ 
-                  ...prev, 
-                  file: e.target.files ? e.target.files[0] : null 
-                }))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowUploadDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleDocumentUpload} disabled={uploading}>
-              {uploading ? 'Uploading...' : 'Upload'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
