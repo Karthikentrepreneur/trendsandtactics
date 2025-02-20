@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -9,36 +8,51 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { attendanceService } from "@/services/attendanceService";
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO } from "date-fns";
-import { Card, CardContent } from "@/components/ui/card";
+import AttendanceDetailsModal from "@/components/employee/attendance/AttendanceDetailsModal";
 
 interface AttendanceTableProps {
   showTodayOnly?: boolean;
-  onViewDetails: (log: AttendanceRecord) => void;
-  userEmail: string;
+  onViewDetails?: (log: AttendanceRecord) => void;
+  userEmail?: string;
+  selectedMonth?: string;
 }
 
-const AttendanceTable = ({ showTodayOnly = false, onViewDetails, userEmail }: AttendanceTableProps) => {
+const AttendanceTable = ({ showTodayOnly = false, onViewDetails, userEmail, selectedMonth }: AttendanceTableProps) => {
   const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedLog, setSelectedLog] = useState<AttendanceRecord | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     const fetchAttendanceLogs = async () => {
       try {
         const logs = await attendanceService.getAttendanceLogs();
-        const filteredLogs = logs.filter(log => 
-          log.email?.toLowerCase() === userEmail?.toLowerCase()
-        );
+        let filteredLogs = logs;
+
+        if (userEmail) {
+          filteredLogs = logs.filter(log => 
+            log.email?.toLowerCase() === userEmail?.toLowerCase()
+          );
+        }
 
         if (showTodayOnly) {
           const today = new Date().toDateString();
-          const todayLogs = filteredLogs.filter(log => 
+          filteredLogs = filteredLogs.filter(log => 
             new Date(log.date).toDateString() === today
           );
-          setAttendanceLogs(todayLogs);
-        } else {
-          setAttendanceLogs(filteredLogs);
         }
+
+        if (selectedMonth) {
+          const [year, month] = selectedMonth.split('-');
+          filteredLogs = filteredLogs.filter(log => {
+            const logDate = new Date(log.date);
+            return logDate.getFullYear() === parseInt(year) && 
+                   logDate.getMonth() === parseInt(month) - 1;
+          });
+        }
+
+        setAttendanceLogs(filteredLogs);
       } catch (error) {
         console.error('Error fetching attendance logs:', error);
       } finally {
@@ -46,10 +60,8 @@ const AttendanceTable = ({ showTodayOnly = false, onViewDetails, userEmail }: At
       }
     };
 
-    if (userEmail) {
-      fetchAttendanceLogs();
-    }
-  }, [userEmail, showTodayOnly]);
+    fetchAttendanceLogs();
+  }, [userEmail, showTodayOnly, selectedMonth]);
 
   const formatTime = (dateTimeString: string) => {
     try {
@@ -78,6 +90,14 @@ const AttendanceTable = ({ showTodayOnly = false, onViewDetails, userEmail }: At
     return <Badge className="bg-red-500">Absent</Badge>;
   };
 
+  const handleViewDetails = (log: AttendanceRecord) => {
+    setSelectedLog(log);
+    setIsModalOpen(true);
+    if (onViewDetails) {
+      onViewDetails(log);
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-[50vh]">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
@@ -85,77 +105,53 @@ const AttendanceTable = ({ showTodayOnly = false, onViewDetails, userEmail }: At
   }
 
   if (attendanceLogs.length === 0) {
-    return <div className="text-center text-gray-500 p-4">No attendance records found.</div>;
-  }
-
-  if (isMobile) {
-    return (
-      <div className="space-y-4">
-        {attendanceLogs.map((log, index) => (
-          <Card key={index} className="w-full">
-            <CardContent className="p-4 space-y-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-medium">{formatDate(log.date)}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Check In: {formatTime(log.checkIn)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Check Out: {formatTime(log.checkOut)}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  {getAttendanceStatus(log.effectiveHours)}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onViewDetails(log)}
-                    className="px-2"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
+    return <div className="text-center text-gray-500">No attendance records found.</div>;
   }
 
   return (
-    <ScrollArea className="h-[600px] rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Check In</TableHead>
-            <TableHead>Check Out</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {attendanceLogs.map((log, index) => (
-            <TableRow key={index}>
-              <TableCell>{formatDate(log.date)}</TableCell>
-              <TableCell>{formatTime(log.checkIn)}</TableCell>
-              <TableCell>{formatTime(log.checkOut)}</TableCell>
-              <TableCell>{getAttendanceStatus(log.effectiveHours)}</TableCell>
-              <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onViewDetails(log)}
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-              </TableCell>
+    <>
+      <ScrollArea className="h-[600px] rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              {!isMobile && <TableHead>Employee ID</TableHead>}
+              <TableHead>Name</TableHead>
+              <TableHead>Check In</TableHead>
+              <TableHead>Check Out</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </ScrollArea>
+          </TableHeader>
+          <TableBody>
+            {attendanceLogs.map((log, index) => (
+              <TableRow key={index}>
+                <TableCell>{formatDate(log.date)}</TableCell>
+                {!isMobile && <TableCell>{log.employeeId}</TableCell>}
+                <TableCell>{log.employeeName}</TableCell>
+                <TableCell>{formatTime(log.checkIn)}</TableCell>
+                <TableCell>{formatTime(log.checkOut)}</TableCell>
+                <TableCell>{getAttendanceStatus(log.effectiveHours)}</TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleViewDetails(log)}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </ScrollArea>
+      <AttendanceDetailsModal
+        log={selectedLog}
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+      />
+    </>
   );
 };
 
