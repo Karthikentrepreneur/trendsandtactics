@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   name: string | null;
@@ -6,6 +7,12 @@ export interface User {
   designation: string | null;
   role: string | null;
   profile_photo?: string | null;
+  date_of_birth?: string | null;
+  fathers_name?: string | null;
+  mothers_name?: string | null;
+  address?: string | null;
+  contact_number?: string | null;
+  emergency_contact?: string | null;
 }
 
 export interface UserFormData {
