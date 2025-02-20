@@ -44,6 +44,98 @@ export type Database = {
           },
         ]
       }
+      bank_information: {
+        Row: {
+          account_number: string
+          account_type: string
+          bank_address: string | null
+          bank_name: string
+          branch_name: string
+          created_at: string | null
+          employee_id: string | null
+          id: string
+          ifsc_code: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_number: string
+          account_type: string
+          bank_address?: string | null
+          bank_name: string
+          branch_name: string
+          created_at?: string | null
+          employee_id?: string | null
+          id?: string
+          ifsc_code: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_number?: string
+          account_type?: string
+          bank_address?: string | null
+          bank_name?: string
+          branch_name?: string
+          created_at?: string | null
+          employee_id?: string | null
+          id?: string
+          ifsc_code?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_information_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_documents: {
+        Row: {
+          document_name: string
+          document_type: string
+          employee_id: string | null
+          file_path: string
+          id: string
+          uploaded_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          document_name: string
+          document_type: string
+          employee_id?: string | null
+          file_path: string
+          id?: string
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          document_name?: string
+          document_type?: string
+          employee_id?: string | null
+          file_path?: string
+          id?: string
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leave_requests: {
         Row: {
           created_at: string | null
@@ -129,11 +221,53 @@ export type Database = {
           },
         ]
       }
+      professional_experience: {
+        Row: {
+          company_name: string
+          created_at: string | null
+          employee_id: string | null
+          end_date: string | null
+          id: string
+          position: string
+          responsibilities: string | null
+          start_date: string
+        }
+        Insert: {
+          company_name: string
+          created_at?: string | null
+          employee_id?: string | null
+          end_date?: string | null
+          id?: string
+          position: string
+          responsibilities?: string | null
+          start_date: string
+        }
+        Update: {
+          company_name?: string
+          created_at?: string | null
+          employee_id?: string | null
+          end_date?: string | null
+          id?: string
+          position?: string
+          responsibilities?: string | null
+          start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professional_experience_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           address: string | null
           contact_number: string | null
           date_of_birth: string | null
+          date_of_joining: string | null
           designation: string | null
           email: string | null
           emergency_contact: string | null
@@ -150,6 +284,7 @@ export type Database = {
           address?: string | null
           contact_number?: string | null
           date_of_birth?: string | null
+          date_of_joining?: string | null
           designation?: string | null
           email?: string | null
           emergency_contact?: string | null
@@ -166,6 +301,7 @@ export type Database = {
           address?: string | null
           contact_number?: string | null
           date_of_birth?: string | null
+          date_of_joining?: string | null
           designation?: string | null
           email?: string | null
           emergency_contact?: string | null
@@ -179,6 +315,47 @@ export type Database = {
           role?: string | null
         }
         Relationships: []
+      }
+      salary_information: {
+        Row: {
+          created_at: string | null
+          employee_id: string | null
+          epf_percentage: number | null
+          gross_salary: number
+          id: string
+          net_pay: number | null
+          total_deduction: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          employee_id?: string | null
+          epf_percentage?: number | null
+          gross_salary: number
+          id?: string
+          net_pay?: number | null
+          total_deduction?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          employee_id?: string | null
+          epf_percentage?: number | null
+          gross_salary?: number
+          id?: string
+          net_pay?: number | null
+          total_deduction?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salary_information_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {
