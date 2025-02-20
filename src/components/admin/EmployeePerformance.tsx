@@ -18,6 +18,10 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import type { ProfessionalExperience, EmployeeDocument, BankInformation, DocumentUpload } from "@/types/employee";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Upload } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const EmployeePerformance = () => {
   const { employeeId } = useParams();
@@ -41,6 +45,26 @@ const EmployeePerformance = () => {
     contact_number: "",
     emergency_contact: ""
   });
+  const [isEditingBank, setIsEditingBank] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const queryClient = useQueryClient();
+  const [bankData, setBankData] = useState({
+    bank_name: "",
+    branch_name: "",
+    bank_address: "",
+    account_number: "",
+    account_type: "",
+    ifsc_code: ""
+  });
+  const [documentUpload, setDocumentUpload] = useState<DocumentUpload>({
+    name: "",
+    type: "",
+    file: null
+  });
+  const [professionalExperience, setProfessionalExperience] = useState<ProfessionalExperience[]>([]);
+  const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
+  const [bankInfo, setBankInfo] = useState<BankInformation | null>(null);
 
   const getMonthOptions = () => {
     const options = [];
@@ -163,20 +187,176 @@ const EmployeePerformance = () => {
     fetchLeaveRequests();
   }, [employeeId]);
 
+  useEffect(() => {
+    const fetchProfessionalExperience = async () => {
+      if (!employeeId) return;
+      const { data, error } = await supabase
+        .from('professional_experience')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .order('start_date', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching professional experience:', error);
+        return;
+      }
+      setProfessionalExperience(data || []);
+    };
+
+    fetchProfessionalExperience();
+  }, [employeeId]);
+
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      if (!employeeId) return;
+      const { data, error } = await supabase
+        .from('employee_documents')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .order('uploaded_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching documents:', error);
+        return;
+      }
+      setDocuments(data || []);
+    };
+
+    fetchDocuments();
+  }, [employeeId]);
+
+  useEffect(() => {
+    const fetchBankInfo = async () => {
+      if (!employeeId) return;
+      const { data, error } = await supabase
+        .from('bank_information')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching bank information:', error);
+        return;
+      }
+      setBankInfo(data || null);
+    };
+
+    fetchBankInfo();
+  }, [employeeId]);
+
+  useEffect(() => {
+    if (employee) {
+      setProfileData({
+        date_of_birth: employee.date_of_birth || "",
+        fathers_name: employee.fathers_name || "",
+        mothers_name: employee.mothers_name || "",
+        address: employee.address || "",
+        contact_number: employee.contact_number || "",
+        emergency_contact: employee.emergency_contact || ""
+      });
+    }
+  }, [employee]);
+
+  useEffect(() => {
+    if (bankInfo) {
+      setBankData({
+        bank_name: bankInfo.bank_name,
+        branch_name: bankInfo.branch_name,
+        bank_address: bankInfo.bank_address || "",
+        account_number: bankInfo.account_number,
+        account_type: bankInfo.account_type,
+        ifsc_code: bankInfo.ifsc_code
+      });
+    }
+  }, [bankInfo]);
+
   const handleProfileUpdate = async () => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update(profileData)
+        .update({
+          date_of_birth: profileData.date_of_birth,
+          fathers_name: profileData.fathers_name,
+          mothers_name: profileData.mothers_name,
+          address: profileData.address,
+          contact_number: profileData.contact_number,
+          emergency_contact: profileData.emergency_contact
+        })
         .eq('id', employeeId);
 
       if (error) throw error;
 
-      toast.success("Profile updated successfully");
+      queryClient.invalidateQueries({ queryKey: ['employee'] });
       setIsEditing(false);
+      toast.success("Profile updated successfully");
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error("Failed to update profile");
+    }
+  };
+
+  const handleBankUpdate = async () => {
+    try {
+      const { error } = await supabase
+        .from('bank_information')
+        .upsert({
+          employee_id: employeeId,
+          ...bankData
+        });
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['bank_info'] });
+      setIsEditingBank(false);
+      toast.success("Bank information updated successfully");
+    } catch (error) {
+      console.error('Error updating bank information:', error);
+      toast.error("Failed to update bank information");
+    }
+  };
+
+  const handleDocumentUpload = async () => {
+    if (!documentUpload.file || !employeeId) {
+      toast.error("Please select a file and provide all required information");
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const fileExt = documentUpload.file.name.split('.').pop();
+      const filePath = `${employeeId}/${crypto.randomUUID()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('employee-documents')
+        .upload(filePath, documentUpload.file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('employee-documents')
+        .getPublicUrl(filePath);
+
+      const { error: dbError } = await supabase
+        .from('employee_documents')
+        .insert({
+          employee_id: employeeId,
+          document_name: documentUpload.name,
+          document_type: documentUpload.type,
+          file_path: publicUrl,
+          uploaded_by: (await supabase.auth.getUser()).data.user?.id
+        });
+
+      if (dbError) throw dbError;
+
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      setShowUploadDialog(false);
+      setDocumentUpload({ name: "", type: "", file: null });
+      toast.success("Document uploaded successfully");
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      toast.error("Failed to upload document");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -524,10 +704,189 @@ const EmployeePerformance = () => {
               )}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Professional Experience</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[300px]">
+                <div className="space-y-4">
+                  {professionalExperience.map((experience) => (
+                    <div key={experience.id} className="p-4 border rounded-lg">
+                      <h4 className="font-medium">{experience.company_name}</h4>
+                      <p className="text-sm text-muted-foreground">{experience.position}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(experience.start_date), 'MMM yyyy')} - 
+                        {experience.end_date 
+                          ? format(new Date(experience.end_date), 'MMM yyyy')
+                          : 'Present'}
+                      </p>
+                      {experience.responsibilities && (
+                        <p className="mt-2 text-sm">{experience.responsibilities}</p>
+                      )}
+                    </div>
+                  ))}
+                  {professionalExperience.length === 0 && (
+                    <p className="text-center text-muted-foreground">No professional experience records found</p>
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Documents</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-end">
+                  <Button onClick={() => setShowUploadDialog(true)}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Document
+                  </Button>
+                </div>
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-4">
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div>
+                          <h4 className="font-medium">{doc.document_name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Type: {doc.document_type}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Uploaded: {format(new Date(doc.uploaded_at || ''), 'PP')}
+                          </p>
+                        </div>
+                        <Button variant="outline" onClick={() => window.open(doc.file_path, '_blank')}>
+                          View
+                        </Button>
+                      </div>
+                    ))}
+                    {documents.length === 0 && (
+                      <p className="text-center text-muted-foreground">No documents found</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Bank Information</CardTitle>
+                {!isEditingBank && (
+                  <Button onClick={() => setIsEditingBank(true)}>Edit</Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="bank_name">Bank Name</Label>
+                  <Input
+                    id="bank_name"
+                    value={bankData.bank_name}
+                    onChange={(e) => setBankData(prev => ({ ...prev, bank_name: e.target.value }))}
+                    disabled={!isEditingBank}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="branch_name">Branch Name</Label>
+                  <Input
+                    id="branch_name"
+                    value={bankData.branch_name}
+                    onChange={(e) => setBankData(prev => ({ ...prev, branch_name: e.target.value }))}
+                    disabled={!isEditingBank}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bank_address">Bank Address</Label>
+                  <Input
+                    id="bank_address"
+                    value={bankData.bank_address}
+                    onChange={(e) => setBankData(prev => ({ ...prev, bank_address: e.target.value }))}
+                    disabled={!isEditingBank}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="account_number">Account Number</Label>
+                  <Input
+                    id="account_number"
+                    value={bankData.account_number}
+                    onChange={(e) => setBankData(prev => ({ ...prev, account_number: e.target.value }))}
+                    disabled={!isEditingBank}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="account_type">Account Type</Label>
+                  <Input
+                    id="account_type"
+                    value={bankData.account_type}
+                    onChange={(e) => setBankData(prev => ({ ...prev, account_type: e.target.value }))}
+                    disabled={!isEditingBank}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ifsc_code">IFSC Code</Label>
+                  <Input
+                    id="ifsc_code"
+                    value={bankData.ifsc_code}
+                    onChange={(e) => setBankData(prev => ({ ...prev, ifsc_code: e.target.value }))}
+                    disabled={!isEditingBank}
+                  />
+                </div>
+              </div>
+              {isEditingBank && (
+                <div className="flex justify-end gap-4 mt-6">
+                  <Button variant="outline" onClick={() => setIsEditingBank(false)}>Cancel</Button>
+                  <Button onClick={handleBankUpdate}>Save Changes</Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
-};
 
-export default EmployeePerformance;
+      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Document</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="document_name">Document Name</Label>
+              <Input
+                id="document_name"
+                value={documentUpload.name}
+                onChange={(e) => setDocumentUpload(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="document_type">Document Type</Label>
+              <Select 
+                value={documentUpload.type}
+                onValueChange={(value) => setDocumentUpload(prev => ({ ...prev, type: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select document type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="id_proof">ID Proof</SelectItem>
+                  <SelectItem value="address_proof">Address Proof</SelectItem>
+                  <SelectItem value="educational">Educational Certificate</SelectItem>
+                  <SelectItem value="experience">Experience Certificate</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="document_file">File</Label>
+              <Input
+                id="document_file"
+                type="file"
+                onChange={(e) => setDocumentUpload(prev => ({ 
+                  ...prev,
