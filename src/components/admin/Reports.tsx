@@ -10,6 +10,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Download, Loader2 } from "lucide-react";
 import { attendanceService } from "@/services/attendanceService";
+import type { AttendanceRecord } from "@/services/attendance/types";
 
 const Reports = () => {
   const [selectedEmployee, setSelectedEmployee] = useState("");
@@ -30,7 +31,7 @@ const Reports = () => {
 
   const generateReport = async () => {
     try {
-      const [attendance, tasks, leaveRequests] = await Promise.all([
+      const [attendanceLogs, tasks, leaveRequests] = await Promise.all([
         fetchAttendance(),
         fetchTasks(),
         fetchLeaveRequests()
@@ -47,19 +48,17 @@ const Reports = () => {
 
       // Add attendance table
       doc.text('Attendance Records', 14, 40);
-      const attendanceY = 45;
       autoTable(doc, {
-        startY: attendanceY,
+        startY: 45,
         head: [['Date', 'Check In', 'Check Out', 'Status']],
-        body: attendance.map((record: any) => [
+        body: attendanceLogs.map((record: AttendanceRecord) => [
           format(new Date(record.date), 'dd/MM/yyyy'),
-          record.check_in || '-',
-          record.check_out || '-',
+          record.checkIn ? format(new Date(record.checkIn), 'HH:mm') : '-',
+          record.checkOut ? format(new Date(record.checkOut), 'HH:mm') : '-',
           record.status
         ])
       });
 
-      // Get the final Y position after the attendance table
       const finalY1 = (doc as any).previousAutoTable.finalY;
 
       // Add tasks table
@@ -67,14 +66,13 @@ const Reports = () => {
       autoTable(doc, {
         startY: finalY1 + 25,
         head: [['Title', 'Status', 'Due Date']],
-        body: tasks.map((task: any) => [
+        body: tasks.map((task) => [
           task.title,
           task.status,
           task.due_date ? format(new Date(task.due_date), 'dd/MM/yyyy') : '-'
         ])
       });
 
-      // Get the final Y position after the tasks table
       const finalY2 = (doc as any).previousAutoTable.finalY;
 
       // Add leave requests table
@@ -82,7 +80,7 @@ const Reports = () => {
       autoTable(doc, {
         startY: finalY2 + 25,
         head: [['Type', 'Start Date', 'End Date', 'Status']],
-        body: leaveRequests.map((leave: any) => [
+        body: leaveRequests.map((leave) => [
           leave.type,
           format(new Date(leave.start_date), 'dd/MM/yyyy'),
           format(new Date(leave.end_date), 'dd/MM/yyyy'),
@@ -97,7 +95,7 @@ const Reports = () => {
   };
 
   const fetchAttendance = async () => {
-    const { data: logs } = await attendanceService.getAttendanceLogs();
+    const logs = await attendanceService.getAttendanceLogs();
     return logs.filter(log => 
       log.employeeId === selectedEmployee &&
       new Date(log.date) >= new Date(startDate) &&

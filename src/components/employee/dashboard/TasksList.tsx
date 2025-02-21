@@ -30,7 +30,7 @@ export const TasksList = ({ tasks }: TasksListProps) => {
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    Due: {new Date(task.due_date || '').toLocaleDateString()}
+                    Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}
                   </p>
                   {task.description && (
                     <p className="text-xs sm:text-sm text-muted-foreground">
