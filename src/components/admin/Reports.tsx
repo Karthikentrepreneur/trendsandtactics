@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +9,7 @@ import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Download, Loader2 } from "lucide-react";
+import { attendanceService } from "@/services/attendanceService";
 
 const Reports = () => {
   const [selectedEmployee, setSelectedEmployee] = useState("");
@@ -47,8 +47,9 @@ const Reports = () => {
 
       // Add attendance table
       doc.text('Attendance Records', 14, 40);
+      const attendanceY = 45;
       autoTable(doc, {
-        startY: 45,
+        startY: attendanceY,
         head: [['Date', 'Check In', 'Check Out', 'Status']],
         body: attendance.map((record: any) => [
           format(new Date(record.date), 'dd/MM/yyyy'),
@@ -58,10 +59,13 @@ const Reports = () => {
         ])
       });
 
+      // Get the final Y position after the attendance table
+      const finalY1 = (doc as any).previousAutoTable.finalY;
+
       // Add tasks table
-      doc.text('Task Records', 14, doc.lastAutoTable.finalY + 20);
+      doc.text('Task Records', 14, finalY1 + 20);
       autoTable(doc, {
-        startY: doc.lastAutoTable.finalY + 25,
+        startY: finalY1 + 25,
         head: [['Title', 'Status', 'Due Date']],
         body: tasks.map((task: any) => [
           task.title,
@@ -70,10 +74,13 @@ const Reports = () => {
         ])
       });
 
+      // Get the final Y position after the tasks table
+      const finalY2 = (doc as any).previousAutoTable.finalY;
+
       // Add leave requests table
-      doc.text('Leave Requests', 14, doc.lastAutoTable.finalY + 20);
+      doc.text('Leave Requests', 14, finalY2 + 20);
       autoTable(doc, {
-        startY: doc.lastAutoTable.finalY + 25,
+        startY: finalY2 + 25,
         head: [['Type', 'Start Date', 'End Date', 'Status']],
         body: leaveRequests.map((leave: any) => [
           leave.type,
@@ -90,14 +97,12 @@ const Reports = () => {
   };
 
   const fetchAttendance = async () => {
-    const { data, error } = await supabase
-      .from('attendance')
-      .select('*')
-      .eq('employee_id', selectedEmployee)
-      .gte('date', startDate)
-      .lte('date', endDate);
-    if (error) throw error;
-    return data || [];
+    const { data: logs } = await attendanceService.getAttendanceLogs();
+    return logs.filter(log => 
+      log.employeeId === selectedEmployee &&
+      new Date(log.date) >= new Date(startDate) &&
+      new Date(log.date) <= new Date(endDate)
+    );
   };
 
   const fetchTasks = async () => {
