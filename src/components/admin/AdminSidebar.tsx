@@ -1,3 +1,4 @@
+
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   ClipboardList,
@@ -8,6 +9,7 @@ import {
   LogOut,
   UserPlus,
   LayoutDashboard,
+  FileText,
 } from "lucide-react";
 import {
   Sidebar,
@@ -37,6 +39,7 @@ const AdminSidebar = () => {
     { title: "Employees", path: "/admin/employees", icon: Users },
     { title: "User Management", path: "/admin/users", icon: UserPlus },
     { title: "Payroll", path: "/admin/payroll", icon: DollarSign },
+    { title: "Reports", path: "/admin/reports", icon: FileText },
     { title: "Announcements", path: "/admin/announcements", icon: Bell },
   ];
 
