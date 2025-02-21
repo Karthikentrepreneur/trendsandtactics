@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import EmployeeForm from "./EmployeeForm";
@@ -34,7 +33,6 @@ const UserManagement = () => {
     try {
       setLoading(true);
       
-      // First create the user in auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -48,7 +46,6 @@ const UserManagement = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // Then create the profile
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({
@@ -67,7 +64,7 @@ const UserManagement = () => {
           description: "Employee created successfully",
         });
         
-        queryClient.invalidateQueries({ queryKey: ['employees'] });
+        await queryClient.invalidateQueries({ queryKey: ['employees'] });
       }
     } catch (error) {
       console.error("Error creating employee:", error);
@@ -101,4 +98,3 @@ const UserManagement = () => {
 };
 
 export default UserManagement;
-
