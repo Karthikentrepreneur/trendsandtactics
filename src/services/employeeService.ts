@@ -3,39 +3,30 @@ import { supabase } from "@/integrations/supabase/client";
 export const employeeService = {
   updatePersonalInfo: async (employeeId: string, data: any) => {
     console.log('Updating personal info:', data);
-    // Validate date fields
+    // Format the date strings properly
     const formattedData = {
-      name: data.name,
-      email: data.email,
-      designation: data.designation,
-      contact_number: data.contact_number,
-      emergency_contact: data.emergency_contact,
-      fathers_name: data.fathers_name,
-      mothers_name: data.mothers_name,
-      address: data.address,
-      date_of_birth: data.date_of_birth ? new Date(data.date_of_birth).toISOString().split('T')[0] : null,
-      date_of_joining: data.date_of_joining ? new Date(data.date_of_joining).toISOString().split('T')[0] : null,
+      ...data,
+      date_of_birth: data.date_of_birth ? data.date_of_birth : null,
+      date_of_joining: data.date_of_joining ? data.date_of_joining : null,
     };
 
-    const { error } = await supabase
+    console.log('Formatted data:', formattedData);
+
+    // Update the profile
+    const { data: updatedData, error } = await supabase
       .from('profiles')
       .update(formattedData)
-      .eq('id', employeeId);
+      .eq('id', employeeId)
+      .select()
+      .single();
     
     if (error) {
       console.error('Error updating personal info:', error);
       throw error;
     }
 
-    // Fetch and return updated data
-    const { data: updatedProfile, error: fetchError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', employeeId)
-      .single();
-
-    if (fetchError) throw fetchError;
-    return updatedProfile;
+    console.log('Updated profile:', updatedData);
+    return updatedData;
   },
 
   updateBankInfo: async (employeeId: string, data: any) => {
