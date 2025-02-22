@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { employeeService } from "@/services/employeeService";
+import { useToast } from "@/hooks/use-toast";
 import {
   Tabs,
   TabsContent,
@@ -11,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
 import type { User } from "@/types/user";
 import type { BankInformation, ProfessionalExperience, DocumentUpload, EmployeeDocument, SalaryInformation } from "@/types/employee";
 import { Loader2, Plus, Trash2, Upload } from "lucide-react";
@@ -105,22 +106,7 @@ const EmployeePerformance = () => {
     try {
       if (!employeeId) return;
 
-      const { error } = await supabase
-        .from("profiles")
-        .upsert({
-          id: employeeId,
-          name: formData.name,
-          email: formData.email,
-          date_of_birth: formData.date_of_birth,
-          fathers_name: formData.fathers_name,
-          mothers_name: formData.mothers_name,
-          address: formData.address,
-          contact_number: formData.contact_number,
-          emergency_contact: formData.emergency_contact,
-          date_of_joining: formData.date_of_joining,
-        });
-
-      if (error) throw error;
+      await employeeService.updatePersonalInfo(employeeId, formData);
 
       toast({
         title: "Success",
@@ -142,19 +128,7 @@ const EmployeePerformance = () => {
     try {
       if (!employeeId) return;
 
-      const { error } = await supabase
-        .from("bank_information")
-        .upsert({
-          employee_id: employeeId,
-          bank_name: formData.bank_name,
-          branch_name: formData.branch_name,
-          account_number: formData.account_number,
-          ifsc_code: formData.ifsc_code,
-          account_type: formData.account_type,
-          bank_address: formData.bank_address,
-        });
-
-      if (error) throw error;
+      await employeeService.updateBankInfo(employeeId, formData);
 
       toast({
         title: "Success",
@@ -176,18 +150,7 @@ const EmployeePerformance = () => {
     try {
       if (!employeeId) return;
 
-      const { error } = await supabase
-        .from("professional_experience")
-        .insert({
-          employee_id: employeeId,
-          company_name: formData.company_name,
-          position: formData.position,
-          start_date: formData.start_date,
-          end_date: formData.end_date || null,
-          responsibilities: formData.responsibilities,
-        });
-
-      if (error) throw error;
+      await employeeService.addExperience(employeeId, formData);
 
       toast({
         title: "Success",
@@ -276,17 +239,7 @@ const EmployeePerformance = () => {
     try {
       if (!employeeId) return;
 
-      const { error } = await supabase
-        .from("salary_information")
-        .upsert({
-          employee_id: employeeId,
-          gross_salary: parseFloat(formData.gross_salary),
-          epf_percentage: formData.epf_percentage ? parseFloat(formData.epf_percentage) : null,
-          net_pay: formData.net_pay ? parseFloat(formData.net_pay) : null,
-          total_deduction: formData.total_deduction ? parseFloat(formData.total_deduction) : null,
-        });
-
-      if (error) throw error;
+      await employeeService.updateSalaryInfo(employeeId, formData);
 
       toast({
         title: "Success",
@@ -303,6 +256,13 @@ const EmployeePerformance = () => {
       });
     }
   };
+
+  useEffect(() => {
+    console.log('Current employee:', employee);
+    console.log('Current bank info:', bankInfo);
+    console.log('Current salary info:', salaryInfo);
+    console.log('Current experiences:', experiences);
+  }, [employee, bankInfo, salaryInfo, experiences]);
 
   if (loading) {
     return (

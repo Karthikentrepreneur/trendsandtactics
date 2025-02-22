@@ -10,22 +10,22 @@ import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Download, Loader2 } from "lucide-react";
-import { attendanceService } from "@/services/attendanceService";
-import type { AttendanceRecord } from "@/services/attendance/types";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
 
 const Reports = () => {
   const [selectedEmployee, setSelectedEmployee] = useState("");
-  const [month, setMonth] = useState("");
+  const [month, setMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const { toast } = useToast();
 
   const { data: employees, isLoading: loadingEmployees } = useQuery({
     queryKey: ['employees'],
     queryFn: async () => {
+      console.log('Fetching employees...');
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, employee_id')
-        .order('name');
+        .select('id, name, employee_id');
       if (error) throw error;
+      console.log('Fetched employees:', data);
       return data;
     }
   });
@@ -34,135 +34,120 @@ const Reports = () => {
     queryKey: ['employee-stats', selectedEmployee, month],
     enabled: !!selectedEmployee && !!month,
     queryFn: async () => {
+      console.log('Fetching stats for:', selectedEmployee, month);
       const startDate = new Date(month);
       const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
 
-      const [attendanceLogs, tasks, leaveRequests] = await Promise.all([
-        fetchAttendance(startDate, endDate),
-        fetchTasks(startDate, endDate),
-        fetchLeaveRequests(startDate, endDate)
+      const [attendance, tasks, leaves] = await Promise.all([
+        // Fetch attendance
+        supabase
+          .from('attendance')
+          .select('*')
+          .eq('employee_id', selectedEmployee)
+          .gte('date', startDate.toISOString())
+          .lte('date', endDate.toISOString()),
+        
+        // Fetch tasks
+        supabase
+          .from('tasks')
+          .select('*')
+          .eq('assigned_to', selectedEmployee)
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString()),
+        
+        // Fetch leave requests
+        supabase
+          .from('leave_requests')
+          .select('*')
+          .eq('employee_id', selectedEmployee)
+          .gte('start_date', startDate.toISOString())
+          .lte('end_date', endDate.toISOString())
       ]);
 
-      const presentDays = attendanceLogs.filter(log => log.status === 'Present').length;
-      const absentDays = attendanceLogs.filter(log => log.status === 'Absent').length;
-      const halfDays = attendanceLogs.filter(log => log.status === 'Half Day').length;
-      const leaveDays = leaveRequests.filter(leave => leave.status === 'approved').length;
-      const completedTasks = tasks.filter(task => task.status === 'completed').length;
-      const pendingTasks = tasks.filter(task => task.status === 'pending').length;
-
-      return {
-        presentDays,
-        absentDays,
-        halfDays,
-        leaveDays,
-        completedTasks,
-        pendingTasks,
-        attendanceLogs,
-        tasks,
-        leaveRequests
+      const stats = {
+        attendance: attendance.data || [],
+        tasks: tasks.data || [],
+        leaves: leaves.data || [],
+        summary: {
+          totalDays: 0,
+          presentDays: 0,
+          absentDays: 0,
+          leaveDays: 0,
+          completedTasks: 0,
+          pendingTasks: 0
+        }
       };
+
+      // Calculate summary
+      if (attendance.data) {
+        stats.summary.totalDays = attendance.data.length;
+        stats.summary.presentDays = attendance.data.filter(a => a.status === 'present').length;
+        stats.summary.absentDays = attendance.data.filter(a => a.status === 'absent').length;
+      }
+
+      if (leaves.data) {
+        stats.summary.leaveDays = leaves.data.filter(l => l.status === 'approved').length;
+      }
+
+      if (tasks.data) {
+        stats.summary.completedTasks = tasks.data.filter(t => t.status === 'completed').length;
+        stats.summary.pendingTasks = tasks.data.filter(t => t.status === 'pending').length;
+      }
+
+      console.log('Generated stats:', stats);
+      return stats;
     }
   });
 
   const generateReport = async () => {
     try {
-      if (!employeeStats) return;
+      if (!employeeStats || !selectedEmployee) return;
 
-      const doc = new jsPDF();
       const employee = employees?.find(e => e.id === selectedEmployee);
-      
+      const doc = new jsPDF();
+
       // Add title
       doc.setFontSize(16);
-      doc.text(`Monthly Report - ${employee?.name || ''}`, 14, 20);
+      doc.text(`Employee Report - ${employee?.name || ''}`, 14, 20);
       doc.setFontSize(12);
       doc.text(`Month: ${format(new Date(month), 'MMMM yyyy')}`, 14, 30);
 
       // Add summary
       doc.text('Monthly Summary', 14, 45);
-      doc.text(`Present Days: ${employeeStats.presentDays}`, 14, 55);
-      doc.text(`Absent Days: ${employeeStats.absentDays}`, 14, 65);
-      doc.text(`Half Days: ${employeeStats.halfDays}`, 14, 75);
-      doc.text(`Leave Days: ${employeeStats.leaveDays}`, 14, 85);
-      doc.text(`Completed Tasks: ${employeeStats.completedTasks}`, 14, 95);
-      doc.text(`Pending Tasks: ${employeeStats.pendingTasks}`, 14, 105);
+      const summary = employeeStats.summary;
+      doc.text(`Total Working Days: ${summary.totalDays}`, 14, 55);
+      doc.text(`Present Days: ${summary.presentDays}`, 14, 65);
+      doc.text(`Absent Days: ${summary.absentDays}`, 14, 75);
+      doc.text(`Leave Days: ${summary.leaveDays}`, 14, 85);
+      doc.text(`Completed Tasks: ${summary.completedTasks}`, 14, 95);
+      doc.text(`Pending Tasks: ${summary.pendingTasks}`, 14, 105);
 
-      // Add attendance table
-      doc.text('Attendance Records', 14, 120);
+      // Add tables
+      doc.setFontSize(14);
+      doc.text('Attendance Details', 14, 120);
       autoTable(doc, {
         startY: 125,
-        head: [['Date', 'Check In', 'Check Out', 'Status']],
-        body: employeeStats.attendanceLogs.map((record: AttendanceRecord) => [
-          format(new Date(record.date), 'dd/MM/yyyy'),
-          record.checkIn ? format(new Date(record.checkIn), 'HH:mm') : '-',
-          record.checkOut ? format(new Date(record.checkOut), 'HH:mm') : '-',
-          record.status
+        head: [['Date', 'Status']],
+        body: employeeStats.attendance.map(a => [
+          format(new Date(a.date), 'dd/MM/yyyy'),
+          a.status
         ])
       });
 
-      const finalY1 = (doc as any).previousAutoTable.finalY;
-
-      // Add tasks table
-      doc.text('Task Records', 14, finalY1 + 20);
-      autoTable(doc, {
-        startY: finalY1 + 25,
-        head: [['Title', 'Status', 'Due Date']],
-        body: employeeStats.tasks.map((task) => [
-          task.title,
-          task.status,
-          task.due_date ? format(new Date(task.due_date), 'dd/MM/yyyy') : '-'
-        ])
+      doc.save(`employee_report_${employee?.employee_id}_${month}.pdf`);
+      
+      toast({
+        title: "Success",
+        description: "Report generated successfully",
       });
-
-      const finalY2 = (doc as any).previousAutoTable.finalY;
-
-      // Add leave requests table
-      doc.text('Leave Requests', 14, finalY2 + 20);
-      autoTable(doc, {
-        startY: finalY2 + 25,
-        head: [['Type', 'Start Date', 'End Date', 'Status']],
-        body: employeeStats.leaveRequests.map((leave) => [
-          leave.type,
-          format(new Date(leave.start_date), 'dd/MM/yyyy'),
-          format(new Date(leave.end_date), 'dd/MM/yyyy'),
-          leave.status
-        ])
-      });
-
-      doc.save(`monthly_report_${employee?.employee_id || 'unknown'}_${format(new Date(month), 'yyyy-MM')}.pdf`);
     } catch (error) {
       console.error('Error generating report:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate report",
+        variant: "destructive",
+      });
     }
-  };
-
-  const fetchAttendance = async (startDate: Date, endDate: Date) => {
-    const logs = await attendanceService.getAttendanceLogs();
-    return logs.filter(log => 
-      log.employeeId === selectedEmployee &&
-      new Date(log.date) >= startDate &&
-      new Date(log.date) <= endDate
-    );
-  };
-
-  const fetchTasks = async (startDate: Date, endDate: Date) => {
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('assigned_to', selectedEmployee)
-      .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString());
-    if (error) throw error;
-    return data || [];
-  };
-
-  const fetchLeaveRequests = async (startDate: Date, endDate: Date) => {
-    const { data, error } = await supabase
-      .from('leave_requests')
-      .select('*')
-      .eq('employee_id', selectedEmployee)
-      .gte('start_date', startDate.toISOString())
-      .lte('end_date', endDate.toISOString());
-    if (error) throw error;
-    return data || [];
   };
 
   if (loadingEmployees) {
@@ -175,13 +160,13 @@ const Reports = () => {
 
   return (
     <div className="container mx-auto py-6">
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Employee Reports</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Employee Reports</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="employee">Select Employee</Label>
                 <select
@@ -208,55 +193,66 @@ const Reports = () => {
                   onChange={(e) => setMonth(e.target.value)}
                 />
               </div>
-
-              {employeeStats && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Monthly Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      <div className="p-4 bg-green-50 rounded-lg">
-                        <p className="text-sm text-gray-600">Present Days</p>
-                        <p className="text-2xl font-bold text-green-600">{employeeStats.presentDays}</p>
-                      </div>
-                      <div className="p-4 bg-red-50 rounded-lg">
-                        <p className="text-sm text-gray-600">Absent Days</p>
-                        <p className="text-2xl font-bold text-red-600">{employeeStats.absentDays}</p>
-                      </div>
-                      <div className="p-4 bg-yellow-50 rounded-lg">
-                        <p className="text-sm text-gray-600">Half Days</p>
-                        <p className="text-2xl font-bold text-yellow-600">{employeeStats.halfDays}</p>
-                      </div>
-                      <div className="p-4 bg-blue-50 rounded-lg">
-                        <p className="text-sm text-gray-600">Leave Days</p>
-                        <p className="text-2xl font-bold text-blue-600">{employeeStats.leaveDays}</p>
-                      </div>
-                      <div className="p-4 bg-purple-50 rounded-lg">
-                        <p className="text-sm text-gray-600">Completed Tasks</p>
-                        <p className="text-2xl font-bold text-purple-600">{employeeStats.completedTasks}</p>
-                      </div>
-                      <div className="p-4 bg-orange-50 rounded-lg">
-                        <p className="text-sm text-gray-600">Pending Tasks</p>
-                        <p className="text-2xl font-bold text-orange-600">{employeeStats.pendingTasks}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              <Button
-                onClick={generateReport}
-                disabled={!selectedEmployee || !month || !employeeStats}
-                className="w-full"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Generate Monthly Report
-              </Button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+            {employeeStats && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle>Monthly Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <p className="text-sm text-gray-600">Present Days</p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {employeeStats.summary.presentDays}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-red-50 rounded-lg">
+                      <p className="text-sm text-gray-600">Absent Days</p>
+                      <p className="text-2xl font-bold text-red-600">
+                        {employeeStats.summary.absentDays}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-gray-600">Leave Days</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {employeeStats.summary.leaveDays}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <p className="text-sm text-gray-600">Completed Tasks</p>
+                      <p className="text-2xl font-bold text-purple-600">
+                        {employeeStats.summary.completedTasks}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-yellow-50 rounded-lg">
+                      <p className="text-sm text-gray-600">Pending Tasks</p>
+                      <p className="text-2xl font-bold text-yellow-600">
+                        {employeeStats.summary.pendingTasks}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-lg">
+                      <p className="text-sm text-gray-600">Total Working Days</p>
+                      <p className="text-2xl font-bold text-gray-600">
+                        {employeeStats.summary.totalDays}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={generateReport}
+                    className="w-full mt-6"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Generate Report PDF
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
