@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -18,26 +19,36 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      console.log('Attempting login with email:', email);
+      
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (authError) {
+        console.error('Authentication error:', authError);
+        throw authError;
+      }
 
-      if (data.user) {
+      console.log('Auth successful:', authData);
+
+      if (authData.user) {
         // After successful login, fetch the user's profile
+        console.log('Fetching user profile for ID:', authData.user.id);
+        
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('role')
-          .eq('id', data.user.id)
+          .eq('id', authData.user.id)
           .single();
 
         if (profileError) {
           console.error('Error fetching profile:', profileError);
-          toast.error("Error fetching user profile");
-          return;
+          throw new Error("Error fetching user profile");
         }
+
+        console.log('Profile data:', profileData);
 
         // Route based on user role
         if (profileData?.role === 'admin') {
@@ -51,9 +62,20 @@ const Login = () => {
         });
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Login process error:', error);
+      
+      let errorMessage = "Please check your credentials and try again";
+      if (error instanceof Error) {
+        // Customize error message based on the error
+        if (error.message.includes("Invalid login credentials")) {
+          errorMessage = "Invalid email or password";
+        } else if (error.message.includes("Email not confirmed")) {
+          errorMessage = "Please verify your email address";
+        }
+      }
+      
       toast.error("Login failed", {
-        description: error instanceof Error ? error.message : "Please check your credentials and try again",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
@@ -111,7 +133,14 @@ const Login = () => {
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign In"
+              )}
             </Button>
           </form>
         </CardContent>
