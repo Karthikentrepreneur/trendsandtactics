@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, UserCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const Reports = () => {
   const navigate = useNavigate();
 
-  const { data: employees, isLoading } = useQuery({
+  const { data: employees, isLoading, error } = useQuery({
     queryKey: ['reports-employees'],
     queryFn: async () => {
       console.log('Fetching employees for reports...');
@@ -22,6 +23,7 @@ const Reports = () => {
           employee_id,
           designation,
           profile_photo,
+          role,
           tasks:tasks(count),
           leave_requests:leave_requests(count)
         `);
@@ -31,8 +33,14 @@ const Reports = () => {
         throw error;
       }
 
-      console.log('Fetched employees:', data);
-      return data || [];
+      // Filter out non-employee profiles (e.g., admins)
+      const employeeProfiles = data?.filter(profile => profile.role === 'employee') || [];
+      console.log('Fetched employees:', employeeProfiles);
+      return employeeProfiles;
+    },
+    onError: (error) => {
+      console.error('Query error:', error);
+      toast.error("Failed to load employee data");
     }
   });
 
@@ -40,6 +48,19 @@ const Reports = () => {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-6">
+        <h2 className="text-3xl font-bold tracking-tight mb-6">Employee Reports</h2>
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-center text-red-500">Error loading employee data. Please try again later.</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
