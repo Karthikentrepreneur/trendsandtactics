@@ -38,9 +38,10 @@ const Reports = () => {
       console.log('Fetched employees:', employeeProfiles);
       return employeeProfiles;
     },
-    onError: (error) => {
-      console.error('Query error:', error);
-      toast.error("Failed to load employee data");
+    meta: {
+      onError: () => {
+        toast.error("Failed to load employee data");
+      }
     }
   });
 
