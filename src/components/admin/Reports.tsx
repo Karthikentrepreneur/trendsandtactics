@@ -11,19 +11,28 @@ const Reports = () => {
   const navigate = useNavigate();
 
   const { data: employees, isLoading } = useQuery({
-    queryKey: ['employees'],
+    queryKey: ['reports-employees'],
     queryFn: async () => {
+      console.log('Fetching employees for reports...');
       const { data, error } = await supabase
         .from('profiles')
         .select(`
-          *,
+          id,
+          name,
+          employee_id,
+          designation,
+          profile_photo,
           tasks:tasks(count),
           leave_requests:leave_requests(count)
         `);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching employees:', error);
+        throw error;
+      }
+
       console.log('Fetched employees:', data);
-      return data;
+      return data || [];
     }
   });
 
@@ -35,11 +44,24 @@ const Reports = () => {
     );
   }
 
+  if (!employees || employees.length === 0) {
+    return (
+      <div className="container mx-auto py-6">
+        <h2 className="text-3xl font-bold tracking-tight mb-6">Employee Reports</h2>
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-center text-gray-500">No employees found.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-6">
       <h2 className="text-3xl font-bold tracking-tight mb-6">Employee Reports</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {employees?.map((employee) => (
+        {employees.map((employee) => (
           <Card 
             key={employee.id} 
             className="hover:shadow-lg transition-shadow cursor-pointer"
@@ -59,6 +81,7 @@ const Reports = () => {
                 <div>
                   <CardTitle className="text-lg">{employee.name}</CardTitle>
                   <p className="text-sm text-gray-600">{employee.designation}</p>
+                  <p className="text-xs text-gray-500">{employee.employee_id}</p>
                 </div>
               </div>
             </CardHeader>
@@ -73,6 +96,15 @@ const Reports = () => {
                   <p className="font-semibold">{employee.leave_requests?.[0]?.count || 0}</p>
                 </div>
               </div>
+              <Button 
+                className="w-full mt-4"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/admin/employee-reports/${employee.id}`);
+                }}
+              >
+                View Reports
+              </Button>
             </CardContent>
           </Card>
         ))}
