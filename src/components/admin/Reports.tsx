@@ -1,138 +1,115 @@
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { Loader2, UserCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@/types/user";
+import { startOfMonth, endOfMonth, format } from "date-fns";
 
-const Reports = () => {
+const Payroll = () => {
+  const [employees, setEmployees] = useState<User[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const { data: employees, isLoading, error } = useQuery({
-    queryKey: ['reports-employees'],
-    queryFn: async () => {
-      console.log('Fetching employees for reports...');
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          name,
-          employee_id,
-          designation,
-          profile_photo,
-          role,
-          tasks:tasks(count),
-          leave_requests:leave_requests(count)
-        `);
-      
-      if (error) {
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('name');
+        
+        if (data) {
+          setEmployees(data);
+        }
+      } catch (error) {
         console.error('Error fetching employees:', error);
-        throw error;
+      } finally {
+        setLoading(false);
       }
+    };
 
-      // Filter out non-employee profiles (e.g., admins)
-      const employeeProfiles = data?.filter(profile => profile.role === 'employee') || [];
-      console.log('Fetched employees:', employeeProfiles);
-      return employeeProfiles;
-    },
-    meta: {
-      onError: () => {
-        toast.error("Failed to load employee data");
-      }
-    }
-  });
+    fetchEmployees();
+  }, []);
 
-  if (isLoading) {
+  const filteredEmployees = employees.filter((employee) =>
+    employee.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.employee_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto py-6">
-        <h2 className="text-3xl font-bold tracking-tight mb-6">Employee Reports</h2>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-center text-red-500">Error loading employee data. Please try again later.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!employees || employees.length === 0) {
-    return (
-      <div className="container mx-auto py-6">
-        <h2 className="text-3xl font-bold tracking-tight mb-6">Employee Reports</h2>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-center text-gray-500">No employees found.</p>
-          </CardContent>
-        </Card>
+      <div className="flex justify-center items-center h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-6">
-      <h2 className="text-3xl font-bold tracking-tight mb-6">Employee Reports</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {employees.map((employee) => (
-          <Card 
-            key={employee.id} 
-            className="hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => navigate(`/admin/employee-dashboard/${employee.id}`)}
-          >
-            <CardHeader>
-              <div className="flex items-center space-x-4">
-                {employee.profile_photo ? (
-                  <img
-                    src={employee.profile_photo}
-                    alt={employee.name || ''}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                ) : (
-                  <UserCircle className="w-12 h-12 text-gray-400" />
-                )}
-                <div>
-                  <CardTitle className="text-lg">{employee.name}</CardTitle>
-                  <p className="text-sm text-gray-600">{employee.designation}</p>
-                  <p className="text-xs text-gray-500">{employee.employee_id}</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-2 bg-blue-50 rounded">
-                  <p className="text-sm text-gray-600">Tasks</p>
-                  <p className="font-semibold">{employee.tasks?.[0]?.count || 0}</p>
-                </div>
-                <div className="text-center p-2 bg-green-50 rounded">
-                  <p className="text-sm text-gray-600">Leaves</p>
-                  <p className="font-semibold">{employee.leave_requests?.[0]?.count || 0}</p>
-                </div>
-              </div>
-              <Button 
-                className="w-full mt-4"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/admin/employee-reports/${employee.id}`);
-                }}
-              >
-                View Reports
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Payroll Management</h2>
       </div>
+
+      <div className="flex items-center space-x-2">
+        <Input
+          placeholder="Search employees..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full sm:max-w-sm"
+        />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Employee List</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[calc(100vh-300px)] w-full">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredEmployees.map((employee) => (
+                <Card
+                  key={employee.id}
+                  className="cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => navigate(`/admin/payroll/${employee.id}`)}
+                >
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                      {employee.profile_photo ? (
+                        <img
+                          src={employee.profile_photo}
+                          alt={employee.name || ''}
+                          className="h-12 w-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                          <span className="text-xl font-medium text-gray-600">
+                            {employee.name?.charAt(0)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-base sm:text-lg truncate">{employee.name}</h3>
+                        <p className="text-sm text-muted-foreground truncate">{employee.designation}</p>
+                        <p className="text-sm text-muted-foreground truncate mt-1">ID: {employee.employee_id}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {filteredEmployees.length === 0 && (
+                <p className="text-center text-muted-foreground col-span-full p-4">No employees found</p>
+              )}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
-export default Reports;
+export default Payroll;
