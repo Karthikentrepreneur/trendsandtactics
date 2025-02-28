@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@/types/user";
-import { startOfMonth, endOfMonth, format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { FileText, Users } from "lucide-react";
 
-const Payroll = () => {
+const Reports = () => {
   const [employees, setEmployees] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -17,16 +18,24 @@ const Payroll = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const { data } = await supabase
+        setLoading(true);
+        console.log('Fetching employees for reports...');
+        const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .order('name');
         
+        if (error) {
+          console.error('Error fetching employees:', error);
+          throw error;
+        }
+        
         if (data) {
+          console.log('Fetched employees:', data);
           setEmployees(data);
         }
       } catch (error) {
-        console.error('Error fetching employees:', error);
+        console.error('Error in reports page:', error);
       } finally {
         setLoading(false);
       }
@@ -52,7 +61,7 @@ const Payroll = () => {
   return (
     <div className="space-y-6 p-2 sm:p-4 md:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Payroll Management</h2>
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Employee Reports</h2>
       </div>
 
       <div className="flex items-center space-x-2">
@@ -65,8 +74,16 @@ const Payroll = () => {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Employee List</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              <span>Employee List</span>
+            </div>
+          </CardTitle>
+          <span className="text-sm text-muted-foreground">
+            {filteredEmployees.length} employees
+          </span>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[calc(100vh-300px)] w-full">
@@ -75,7 +92,7 @@ const Payroll = () => {
                 <Card
                   key={employee.id}
                   className="cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => navigate(`/admin/payroll/${employee.id}`)}
+                  onClick={() => navigate(`/admin/employee-reports/${employee.id}`)}
                 >
                   <CardContent className="p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
@@ -98,6 +115,19 @@ const Payroll = () => {
                         <p className="text-sm text-muted-foreground truncate mt-1">ID: {employee.employee_id}</p>
                       </div>
                     </div>
+                    <div className="mt-4 pt-4 border-t">
+                      <Button 
+                        variant="outline" 
+                        className="w-full" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/admin/employee-reports/${employee.id}`);
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        View Reports
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -112,4 +142,4 @@ const Payroll = () => {
   );
 };
 
-export default reports;
+export default Reports;
