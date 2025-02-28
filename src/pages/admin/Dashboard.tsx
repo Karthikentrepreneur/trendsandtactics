@@ -1,3 +1,4 @@
+
 import { Routes, Route } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import AdminSidebar from "@/components/admin/AdminSidebar";
@@ -11,6 +12,8 @@ import Announcements from "@/components/admin/Announcements";
 import AttendanceTable from "@/components/admin/AttendanceTable";
 import Payroll from "@/components/admin/Payroll";
 import EmployeePerformance from "@/components/admin/EmployeePerformance";
+import Reports from "@/components/admin/Reports"; // Import the Reports component
+import EmployeeReports from "@/components/admin/EmployeeReports"; // Import the EmployeeReports component
 import { AttendanceRecord } from "@/services/attendance/types";
 
 const AdminDashboard = () => {
@@ -41,6 +44,8 @@ const AdminDashboard = () => {
               <Route path="/announcements" element={<Announcements />} />
               <Route path="/payroll" element={<Payroll />} />
               <Route path="/payroll/:employeeId" element={<EmployeePerformance />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/employee-reports/:employeeId" element={<EmployeeReports />} />
             </Routes>
           </div>
         </main>

@@ -7,7 +7,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@/types/user";
 import { Button } from "@/components/ui/button";
-import { FileText, Users } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { FileText, Search, Users } from "lucide-react";
 
 const Reports = () => {
   const [employees, setEmployees] = useState<User[]>([]);
@@ -19,19 +27,19 @@ const Reports = () => {
     const fetchEmployees = async () => {
       try {
         setLoading(true);
-        console.log('Fetching employees for reports...');
+        console.log("Fetching all profiles...");
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .order('name');
         
         if (error) {
-          console.error('Error fetching employees:', error);
+          console.error('Error fetching profiles:', error);
           throw error;
         }
         
         if (data) {
-          console.log('Fetched employees:', data);
+          console.log('Fetched profiles:', data);
           setEmployees(data);
         }
       } catch (error) {
@@ -47,8 +55,13 @@ const Reports = () => {
   const filteredEmployees = employees.filter((employee) =>
     employee.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     employee.employee_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    employee.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    employee.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.designation?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleViewEmployee = (employeeId: string) => {
+    navigate(`/admin/employee-reports/${employeeId}`);
+  };
 
   if (loading) {
     return (
@@ -61,80 +74,86 @@ const Reports = () => {
   return (
     <div className="space-y-6 p-2 sm:p-4 md:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Employee Reports</h2>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <Input
-          placeholder="Search employees..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full sm:max-w-sm"
-        />
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Performance Reports</h2>
+        <div className="relative w-full sm:w-auto">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search employees..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full sm:w-[300px] pl-8"
+          />
+        </div>
       </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              <span>Employee List</span>
-            </div>
+          <CardTitle className="text-xl flex items-center">
+            <Users className="mr-2 h-5 w-5" />
+            Employee Reports
           </CardTitle>
           <span className="text-sm text-muted-foreground">
             {filteredEmployees.length} employees
           </span>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[calc(100vh-300px)] w-full">
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredEmployees.map((employee) => (
-                <Card
-                  key={employee.id}
-                  className="cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => navigate(`/admin/employee-reports/${employee.id}`)}
-                >
-                  <CardContent className="p-3 sm:p-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                      {employee.profile_photo ? (
-                        <img
-                          src={employee.profile_photo}
-                          alt={employee.name || ''}
-                          className="h-12 w-12 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xl font-medium text-gray-600">
-                            {employee.name?.charAt(0)}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-base sm:text-lg truncate">{employee.name}</h3>
-                        <p className="text-sm text-muted-foreground truncate">{employee.designation}</p>
-                        <p className="text-sm text-muted-foreground truncate mt-1">ID: {employee.employee_id}</p>
+          <ScrollArea className="h-[calc(100vh-250px)] w-full">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Designation</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredEmployees.map((employee) => (
+                  <TableRow key={employee.id} className="hover:bg-muted/50">
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        {employee.profile_photo ? (
+                          <img
+                            src={employee.profile_photo}
+                            alt={employee.name || ''}
+                            className="h-8 w-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-sm font-medium text-gray-600">
+                              {employee.name?.charAt(0)}
+                            </span>
+                          </div>
+                        )}
+                        {employee.name}
                       </div>
-                    </div>
-                    <div className="mt-4 pt-4 border-t">
-                      <Button 
-                        variant="outline" 
-                        className="w-full" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/admin/employee-reports/${employee.id}`);
-                        }}
+                    </TableCell>
+                    <TableCell>{employee.employee_id}</TableCell>
+                    <TableCell>{employee.designation}</TableCell>
+                    <TableCell>{employee.email}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        onClick={() => handleViewEmployee(employee.id)}
+                        className="flex items-center gap-1"
                       >
-                        <FileText className="h-4 w-4 mr-2" />
-                        View Reports
+                        <FileText className="h-3.5 w-3.5" />
+                        <span>View Report</span>
                       </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {filteredEmployees.length === 0 && (
-                <p className="text-center text-muted-foreground col-span-full p-4">No employees found</p>
-              )}
-            </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+
+                {filteredEmployees.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      No employees found
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </ScrollArea>
         </CardContent>
       </Card>
