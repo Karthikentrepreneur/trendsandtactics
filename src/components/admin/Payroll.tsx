@@ -112,4 +112,4 @@ const Payroll = () => {
   );
 };
 
-export default Reports;
+export default Payroll;
