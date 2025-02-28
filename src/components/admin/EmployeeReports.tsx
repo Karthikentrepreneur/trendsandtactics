@@ -158,6 +158,7 @@ const EmployeePerformance = () => {
           return;
         }
         
+        // Now this should work because we've updated the LeaveRequest interface
         setLeaveRequests(data || []);
       }
     };

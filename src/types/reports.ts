@@ -15,8 +15,9 @@ export interface LeaveRequest {
   start_date: string;
   end_date: string;
   reason: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: string; // Changed from strict union type to string to match database
   created_at: string;
+  updated_at?: string; // Added to match the database schema
 }
 
 export interface EmployeeProfile {
