@@ -1,529 +1,1636 @@
+
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/integrations/supabase/client";
-import { attendanceService } from "@/services/attendanceService";
-import { Task, User } from "@/types/user";
-import { PerformanceAnalytics, LeaveRequest, EmployeeProfile } from "@/types/reports";
-import AttendanceTable from "./AttendanceTable";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { StatCard } from "@/components/employee/dashboard/StatCard";
-import { CalendarDays, CheckCircle2, Clock, Download, XCircle } from "lucide-react";
-import { startOfMonth, endOfMonth, format, parseISO, getDay, getDaysInMonth, isAfter, isSunday } from "date-fns";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { supabase } from "@/integrations/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import type { User, PayslipFormValues, SalaryInformation } from "@/types/user";
+import { Textarea } from "@/components/ui/textarea";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { 
+  BriefcaseIcon, 
+  CalendarIcon, 
+  Download, 
+  FileText, 
+  FileUp, 
+  Plus, 
+  Printer, 
+  Upload, 
+  UserIcon, 
+  Building, 
+  CreditCard,
+  CheckCircle2,
+  XCircle,
+  CalendarDays
+} from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { format } from "date-fns";
+import { attendanceService } from "@/services/attendanceService";
+
+interface Payslip {
+  id: string;
+  employee_id: string;
+  month: string;
+  year: string;
+  basic_salary: number;
+  hra: number;
+  da: number;
+  ta: number;
+  other_allowances: number;
+  epf_deduction: number;
+  other_deductions: number;
+  net_salary: number;
+  created_at: string;
+}
+
+interface ProfessionalExperience {
+  id: string;
+  employee_id: string;
+  company_name: string;
+  position: string;
+  start_date: string;
+  end_date: string | null;
+  responsibilities: string | null;
+  created_at: string;
+}
+
+interface EmployeeDocument {
+  id: string;
+  employee_id: string;
+  document_type: string;
+  document_name: string;
+  file_path: string;
+  uploaded_at: string;
+}
+
+// Define a schema that matches the PayslipFormValues interface
+const payslipFormSchema = z.object({
+  month: z.string().min(1, "Month is required"),
+  year: z.string().min(1, "Year is required"),
+  basic_salary: z.coerce.number().default(0),
+  hra: z.coerce.number().default(0),
+  da: z.coerce.number().default(0),
+  ta: z.coerce.number().default(0),
+  other_allowances: z.coerce.number().default(0),
+  epf_deduction: z.coerce.number().default(0),
+  other_deductions: z.coerce.number().default(0),
+});
+
+type PayslipSchemaType = z.infer<typeof payslipFormSchema>;
 
 const EmployeePerformance = () => {
   const { employeeId } = useParams();
   const [employee, setEmployee] = useState<User | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
-  const [analytics, setAnalytics] = useState<PerformanceAnalytics>({
+  const [payslips, setPayslips] = useState<Payslip[]>([]);
+  const [professionalExperience, setProfessionalExperience] = useState<ProfessionalExperience[]>([]);
+  const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
+  const [salaryInfo, setSalaryInfo] = useState<SalaryInformation | null>(null);
+  const [currentDate] = useState(new Date());
+  const [netSalary, setNetSalary] = useState<number>(0);
+  const [newExperience, setNewExperience] = useState({
+    company_name: "",
+    position: "",
+    start_date: "",
+    end_date: "",
+    responsibilities: ""
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [documentType, setDocumentType] = useState("");
+  const [documentName, setDocumentName] = useState("");
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [attendanceData, setAttendanceData] = useState({
     presentDays: 0,
     absentDays: 0,
-    completedTasks: 0,
-    pendingTasks: 0
+    leaveDays: 0
   });
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [profileData, setProfileData] = useState<EmployeeProfile>({
-    date_of_birth: "",
-    fathers_name: "",
-    mothers_name: "",
-    address: "",
-    contact_number: "",
-    emergency_contact: ""
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const months = [
+    "January", "February", "March", "April", "May", "June", 
+    "July", "August", "September", "October", "November", "December"
+  ];
+  
+  const years = Array.from({ length: 11 }, (_, i) => (currentDate.getFullYear() - 5 + i).toString());
+  const departments = ["HR", "IT", "Finance", "Operations", "Marketing", "Sales", "Administration"];
+  const documentTypes = ["ID Proof", "Address Proof", "Education Certificate", "Experience Certificate", "Salary Slip", "Others"];
+
+  // Use the schema with the form
+  const form = useForm<PayslipFormValues>({
+    resolver: zodResolver(payslipFormSchema) as any, // Type assertion to bypass type checking temporarily
+    defaultValues: {
+      month: months[currentDate.getMonth()],
+      year: currentDate.getFullYear().toString(),
+      basic_salary: 0,
+      hra: 0,
+      da: 0,
+      ta: 0,
+      other_allowances: 0,
+      epf_deduction: 0,
+      other_deductions: 0,
+    },
   });
 
-  const getMonthOptions = () => {
-    const options = [];
-    const currentDate = new Date();
-    for (let i = 0; i < 12; i++) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-      const value = format(date, 'yyyy-MM');
-      const label = format(date, 'MMMM yyyy');
-      options.push({ value, label });
-    }
-    return options;
-  };
-
-  const calculateSundaysInMonth = (year: number, month: number, endDay: number) => {
-    let sundays = 0;
-    for (let day = 1; day <= endDay; day++) {
-      const date = new Date(year, month - 1, day);
-      if (isSunday(date)) {
-        sundays++;
-      }
-    }
-    return sundays;
-  };
+  const watchAllFields = form.watch();
+  
+  useEffect(() => {
+    const { basic_salary, hra, da, ta, other_allowances, epf_deduction, other_deductions } = watchAllFields;
+    
+    const totalEarnings = 
+      Number(basic_salary || 0) + 
+      Number(hra || 0) + 
+      Number(da || 0) + 
+      Number(ta || 0) + 
+      Number(other_allowances || 0);
+    
+    const totalDeductions = 
+      Number(epf_deduction || 0) + 
+      Number(other_deductions || 0);
+    
+    setNetSalary(totalEarnings - totalDeductions);
+  }, [watchAllFields]);
 
   useEffect(() => {
-    const fetchEmployeeData = async () => {
-      try {
-        // Fetch employee profile
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', employeeId)
-          .single();
-
-        if (profileData) {
-          setEmployee(profileData as User);
-
-          // Parse selected month
-          const [year, month] = selectedMonth.split('-');
-          const selectedDate = new Date(parseInt(year), parseInt(month) - 1);
-          const startDate = startOfMonth(selectedDate);
-          const endDate = endOfMonth(selectedDate);
-          const today = new Date();
-
-          // Fetch attendance logs
-          const logs = await attendanceService.getAttendanceLogs();
-          const monthLogs = logs.filter(log => {
-            const logDate = new Date(log.date);
-            return logDate >= startDate && logDate <= endDate && 
-                   log.email?.toLowerCase() === profileData.email?.toLowerCase();
-          });
-
-          // Calculate attendance analytics
-          const presentDays = monthLogs.filter(log => log.effectiveHours > 0).length;
-          
-          // Calculate days to consider for absence (up to today or end of month)
-          const daysInMonth = getDaysInMonth(selectedDate);
-          const lastDayToConsider = isAfter(endDate, today) ? today.getDate() : daysInMonth;
-          
-          // Calculate Sundays up to the last day to consider
-          const sundaysCount = calculateSundaysInMonth(parseInt(year), parseInt(month), lastDayToConsider);
-          const casualLeaveAllowance = 1; // One casual leave per month
-          
-          // Calculate absent days only up to today or end of month
-          const absentDays = Math.max(0, lastDayToConsider - presentDays - sundaysCount - casualLeaveAllowance);
-
-          // Fetch month's tasks
-          const { data: tasksData } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('assigned_to', employeeId)
-            .gte('created_at', startDate.toISOString())
-            .lte('created_at', endDate.toISOString())
-            .order('created_at', { ascending: false });
-
-          if (tasksData) {
-            setTasks(tasksData);
-            // Calculate task analytics
-            const completedTasks = tasksData.filter(task => task.status === 'completed').length;
-            const pendingTasks = tasksData.filter(task => task.status !== 'completed').length;
-
-            setAnalytics({
-              presentDays,
-              absentDays,
-              completedTasks,
-              pendingTasks
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching employee data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (employeeId) {
-      fetchEmployeeData();
-    }
-  }, [employeeId, selectedMonth]);
-
-  useEffect(() => {
-    const fetchLeaveRequests = async () => {
-      if (employeeId) {
-        const { data, error } = await supabase
-          .from('leave_requests')
-          .select('*')
-          .eq('employee_id', employeeId)
-          .order('created_at', { ascending: false });
-        
-        if (error) {
-          console.error('Error fetching leave requests:', error);
-          return;
-        }
-        
-        // Now this should work because we've updated the LeaveRequest interface
-        setLeaveRequests(data || []);
-      }
-    };
-
-    fetchLeaveRequests();
+    fetchEmployeeData();
   }, [employeeId]);
 
-  const handleProfileUpdate = async () => {
+  // Fix type issues by adding type assertion
+  const fetchEmployeeData = async () => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update(profileData)
-        .eq('id', employeeId);
+      if (!employeeId) return;
+      
+      const { data: employeeData, error: employeeError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", employeeId)
+        .single();
 
-      if (error) throw error;
+      if (employeeError) throw employeeError;
 
-      toast.success("Profile updated successfully");
-      setIsEditing(false);
+      if (employeeData) {
+        setEmployee(employeeData as User);
+        await Promise.all([
+          fetchPayslips(),
+          fetchProfessionalExperience(),
+          fetchDocuments(),
+          fetchSalaryInformation(),
+          fetchAttendanceStats()
+        ]);
+      }
+      setLoading(false);
     } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error("Failed to update profile");
+      console.error("Error fetching employee:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch employee data",
+        variant: "destructive",
+      });
+      setLoading(false);
     }
   };
 
-  const generatePDF = () => {
+  const fetchPayslips = async () => {
+    if (!employeeId) return;
+    
+    const { data, error } = await supabase
+      .from("payslips")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .order("created_at", { ascending: false });
+    
+    if (error) {
+      console.error("Error fetching payslips:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch payslip data",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setPayslips(data || []);
+  };
+
+  const fetchProfessionalExperience = async () => {
+    if (!employeeId) return;
+    
+    const { data, error } = await supabase
+      .from("professional_experience")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .order("start_date", { ascending: false });
+    
+    if (error) {
+      console.error("Error fetching professional experience:", error);
+      return;
+    }
+    
+    setProfessionalExperience(data || []);
+  };
+
+  const fetchDocuments = async () => {
+    if (!employeeId) return;
+    
+    const { data, error } = await supabase
+      .from("employee_documents")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .order("uploaded_at", { ascending: false });
+    
+    if (error) {
+      console.error("Error fetching documents:", error);
+      return;
+    }
+    
+    setDocuments(data || []);
+  };
+
+  const fetchSalaryInformation = async () => {
+    if (!employeeId) return;
+    
+    const { data, error } = await supabase
+      .from("salary_information")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .single();
+    
+    if (error && error.code !== "PGRST116") { // PGRST116 is "no rows returned" error
+      console.error("Error fetching salary information:", error);
+      return;
+    }
+    
+    setSalaryInfo(data || null);
+  };
+
+  const fetchAttendanceStats = async () => {
+    try {
+      if (!employeeId || !employee?.email) return;
+      
+      const logs = await attendanceService.getAttendanceLogs();
+      const employeeLogs = logs.filter(log => 
+        log.email?.toLowerCase() === employee.email?.toLowerCase()
+      );
+      
+      // Calculate present days (any day with attendance)
+      const presentDays = employeeLogs.filter(log => log.effectiveHours > 0).length;
+      
+      // Get leaves from the database
+      const { data: leaves } = await supabase
+        .from("leave_requests")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .eq("status", "approved");
+      
+      const leaveDays = leaves?.length || 0;
+      
+      // Calculate work days in current month (excluding weekends)
+      const today = new Date();
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      
+      let workDays = 0;
+      for (let i = 1; i <= daysInMonth; i++) {
+        const date = new Date(currentYear, currentMonth, i);
+        const day = date.getDay();
+        if (day !== 0 && day !== 6) { // Not Sunday or Saturday
+          workDays++;
+        }
+      }
+      
+      const absentDays = Math.max(0, workDays - presentDays - leaveDays);
+      
+      setAttendanceData({
+        presentDays,
+        absentDays,
+        leaveDays
+      });
+    } catch (error) {
+      console.error("Error calculating attendance stats:", error);
+    }
+  };
+
+  const handleCreatePayslip = async (values: PayslipFormValues) => {
+    try {
+      if (!employeeId || !employee) return;
+
+      const { data: existingPayslip } = await supabase
+        .from("payslips")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .eq("month", values.month)
+        .eq("year", values.year)
+        .maybeSingle();
+
+      const totalEarnings = 
+        values.basic_salary + 
+        values.hra + 
+        values.da + 
+        values.ta + 
+        values.other_allowances;
+      
+      const totalDeductions = 
+        values.epf_deduction + 
+        values.other_deductions;
+      
+      const netSalary = totalEarnings - totalDeductions;
+
+      let result;
+      
+      if (existingPayslip) {
+        result = await supabase
+          .from("payslips")
+          .update({
+            basic_salary: values.basic_salary,
+            hra: values.hra,
+            da: values.da,
+            ta: values.ta,
+            other_allowances: values.other_allowances,
+            epf_deduction: values.epf_deduction,
+            other_deductions: values.other_deductions,
+            net_salary: netSalary,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", existingPayslip.id);
+          
+        toast({
+          title: "Success",
+          description: "Payslip updated successfully",
+        });
+      } else {
+        result = await supabase
+          .from("payslips")
+          .insert({
+            employee_id: employeeId,
+            month: values.month,
+            year: values.year,
+            basic_salary: values.basic_salary,
+            hra: values.hra,
+            da: values.da,
+            ta: values.ta,
+            other_allowances: values.other_allowances,
+            epf_deduction: values.epf_deduction,
+            other_deductions: values.other_deductions,
+            net_salary: netSalary
+          });
+          
+        toast({
+          title: "Success",
+          description: "Payslip created successfully",
+        });
+      }
+      
+      if (result.error) throw result.error;
+      
+      await fetchPayslips();
+      
+    } catch (error) {
+      console.error("Error creating/updating payslip:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create/update payslip",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddExperience = async () => {
+    try {
+      if (!employeeId) return;
+      
+      const { error } = await supabase
+        .from("professional_experience")
+        .insert({
+          employee_id: employeeId,
+          company_name: newExperience.company_name,
+          position: newExperience.position,
+          start_date: newExperience.start_date,
+          end_date: newExperience.end_date || null,
+          responsibilities: newExperience.responsibilities || null
+        });
+      
+      if (error) throw error;
+      
+      setNewExperience({
+        company_name: "",
+        position: "",
+        start_date: "",
+        end_date: "",
+        responsibilities: ""
+      });
+      
+      toast({
+        title: "Success",
+        description: "Experience added successfully",
+      });
+      
+      await fetchProfessionalExperience();
+    } catch (error) {
+      console.error("Error adding experience:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add experience",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+      // Set document name from file name if not provided
+      if (!documentName) {
+        setDocumentName(e.target.files[0].name.split('.')[0]);
+      }
+    }
+  };
+
+  const handleUploadDocument = async () => {
+    try {
+      if (!employeeId || !selectedFile || !documentType || !documentName) {
+        toast({
+          title: "Error",
+          description: "All fields are required",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setUploadingDocument(true);
+      const fileExt = selectedFile.name.split('.').pop();
+      const filePath = `documents/${employeeId}/${Date.now()}-${documentName}.${fileExt}`;
+      
+      // Upload file to storage
+      const { error: uploadError, data } = await supabase.storage
+        .from("employees")
+        .upload(filePath, selectedFile);
+      
+      if (uploadError) throw uploadError;
+      
+      // Get file URL
+      const { data: { publicUrl } } = supabase.storage
+        .from("employees")
+        .getPublicUrl(filePath);
+      
+      // Save document info in database
+      const { error: dbError } = await supabase
+        .from("employee_documents")
+        .insert({
+          employee_id: employeeId,
+          document_type: documentType,
+          document_name: documentName,
+          file_path: publicUrl
+        });
+      
+      if (dbError) throw dbError;
+      
+      toast({
+        title: "Success",
+        description: "Document uploaded successfully",
+      });
+      
+      setSelectedFile(null);
+      setDocumentType("");
+      setDocumentName("");
+      await fetchDocuments();
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload document",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingDocument(false);
+    }
+  };
+
+  const handleUpdateSalaryInfo = async (data: SalaryInformation) => {
+    try {
+      if (!employeeId) return;
+      
+      // Calculate net pay based on gross salary and deductions
+      const epfAmount = (data.gross_salary * data.epf_percentage) / 100;
+      const totalDeduction = data.total_deduction || epfAmount;
+      const netPay = data.gross_salary - totalDeduction;
+      
+      let result;
+      
+      if (salaryInfo) {
+        result = await supabase
+          .from("salary_information")
+          .update({
+            gross_salary: data.gross_salary,
+            epf_percentage: data.epf_percentage,
+            total_deduction: totalDeduction,
+            net_pay: netPay,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", salaryInfo.id);
+      } else {
+        result = await supabase
+          .from("salary_information")
+          .insert({
+            employee_id: employeeId,
+            gross_salary: data.gross_salary,
+            epf_percentage: data.epf_percentage,
+            total_deduction: totalDeduction,
+            net_pay: netPay
+          });
+      }
+      
+      if (result.error) throw result.error;
+      
+      await fetchSalaryInformation();
+      
+      toast({
+        title: "Success",
+        description: "Salary information updated successfully",
+      });
+    } catch (error) {
+      console.error("Error updating salary information:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update salary information",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateProfile = async (updatedData: any) => {
+    try {
+      if (!employeeId || !employee) return;
+      
+      const { error } = await supabase
+        .from("profiles")
+        .update(updatedData)
+        .eq("id", employeeId);
+      
+      if (error) throw error;
+      
+      // Update local state to reflect changes
+      setEmployee({ ...employee, ...updatedData });
+      
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      });
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const generatePayslipPDF = (payslip: Payslip) => {
     if (!employee) return;
-
+    
     const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.width;
-
-    // Add title
-    doc.setFontSize(16);
-    doc.text(`Performance Report - ${employee.name}`, pageWidth / 2, 15, { align: 'center' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    // Add company logo
+    try {
+      // Comment this out if you don't have a logo
+      const logo = new Image();
+      logo.src = '/logo.png'; // Assuming logo is in public folder
+      doc.addImage(logo, 'PNG', 14, 10, 40, 20);
+    } catch (e) {
+      console.error("Error adding logo", e);
+    }
+    
+    // Add company name as header
+    doc.setFillColor(52, 101, 164);
+    doc.rect(0, 0, pageWidth, 30, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.text("Trends & Tactics", pageWidth / 2, 15, { align: "center" });
+    doc.setFontSize(14);
+    doc.text("Payslip for " + payslip.month + " " + payslip.year, pageWidth / 2, 25, { align: "center" });
+    
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(12);
-    doc.text(`Month: ${format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy')}`, pageWidth / 2, 25, { align: 'center' });
-
-    // Add employee details
-    doc.text(`Employee ID: ${employee.employee_id}`, 20, 35);
-    doc.text(`Designation: ${employee.designation}`, 20, 42);
-
-    // Add performance summary
-    doc.text('Performance Summary:', 20, 55);
-    doc.text(`Present Days: ${analytics.presentDays}`, 30, 62);
-    doc.text(`Absent Days: ${analytics.absentDays}`, 30, 69);
-    doc.text(`Completed Tasks: ${analytics.completedTasks}`, 30, 76);
-    doc.text(`Pending Tasks: ${analytics.pendingTasks}`, 30, 83);
-
-    // Fetch attendance logs for the selected month
-    attendanceService.getAttendanceLogs().then((logs) => {
-      const [year, month] = selectedMonth.split('-');
-      const selectedDate = new Date(parseInt(year), parseInt(month) - 1);
-      const startDate = startOfMonth(selectedDate);
-      const endDate = endOfMonth(selectedDate);
-
-      const monthLogs = logs.filter(log => {
-        const logDate = new Date(log.date);
-        return logDate >= startDate && 
-               logDate <= endDate && 
-               log.email?.toLowerCase() === employee.email?.toLowerCase();
-      });
-
-      // Add attendance table
-      doc.text('Attendance Records:', 20, 100);
-      const attendanceData = monthLogs.map(log => [
-        format(new Date(log.date), 'MMM dd, yyyy'),
-        format(new Date(log.checkIn), 'hh:mm a'),
-        format(new Date(log.checkOut), 'hh:mm a'),
-        `${log.effectiveHours} hours`,
-        log.effectiveHours >= 8 ? 'Full Day' : log.effectiveHours > 0 ? 'Partial Day' : 'Absent'
-      ]);
-
-      autoTable(doc, {
-        startY: 105,
-        head: [['Date', 'Check In', 'Check Out', 'Hours Worked', 'Status']],
-        body: attendanceData,
-      });
-
-      // Add tasks table
-      doc.addPage();
-      doc.text('Tasks Overview:', 20, 20);
-      const tasksData = tasks.map(task => [
-        task.title,
-        task.description || 'N/A',
-        task.status,
-        format(new Date(task.due_date || ''), 'MMM dd, yyyy')
-      ]);
-
-      autoTable(doc, {
-        startY: 25,
-        head: [['Task Title', 'Description', 'Status', 'Due Date']],
-        body: tasksData,
-      });
-
-      // Save the PDF
-      const fileName = `${employee.name}_performance_report_${selectedMonth}.pdf`;
-      doc.save(fileName);
-      toast.success("Report downloaded successfully");
-    }).catch(error => {
-      console.error('Error generating PDF:', error);
-      toast.error("Failed to generate report");
+    doc.text("Employee Details", 14, 40);
+    
+    // Employee information
+    const employeeInfo = [
+      ["Employee Name:", employee.name || ""],
+      ["Employee ID:", employee.employee_id || ""],
+      ["Designation:", employee.designation || ""],
+      ["Department:", employee.department || ""],
+      ["Date of Joining:", employee.date_of_joining ? format(new Date(employee.date_of_joining), "dd/MM/yyyy") : ""],
+    ];
+    
+    autoTable(doc, {
+      startY: 45,
+      head: [],
+      body: employeeInfo,
+      theme: 'plain',
+      styles: { fontSize: 10 },
+      columnStyles: { 0: { cellWidth: 40 } }
     });
+    
+    // Attendance information
+    doc.text("Attendance Summary", 14, 85);
+    
+    const attendanceInfo = [
+      ["Present Days:", `${attendanceData.presentDays}`],
+      ["Absent Days:", `${attendanceData.absentDays}`],
+      ["Leave Days:", `${attendanceData.leaveDays}`],
+    ];
+    
+    autoTable(doc, {
+      startY: 90,
+      head: [],
+      body: attendanceInfo,
+      theme: 'plain',
+      styles: { fontSize: 10 },
+      columnStyles: { 0: { cellWidth: 40 } }
+    });
+    
+    doc.text("Salary Details", 14, 120);
+    
+    const earningsTable = [
+      ["Earnings", "Amount"],
+      ["Basic Salary", `${payslip.basic_salary.toFixed(2)}`],
+      ["HRA", `${payslip.hra.toFixed(2)}`],
+      ["DA", `${payslip.da.toFixed(2)}`],
+      ["TA", `${payslip.ta.toFixed(2)}`],
+      ["Other Allowances", `${payslip.other_allowances.toFixed(2)}`],
+      ["Total Earnings", `${(payslip.basic_salary + payslip.hra + payslip.da + payslip.ta + payslip.other_allowances).toFixed(2)}`]
+    ];
+    
+    const deductionsTable = [
+      ["Deductions", "Amount"],
+      ["EPF", `${payslip.epf_deduction.toFixed(2)}`],
+      ["Other Deductions", `${payslip.other_deductions.toFixed(2)}`],
+      ["Total Deductions", `${(payslip.epf_deduction + payslip.other_deductions).toFixed(2)}`]
+    ];
+    
+    autoTable(doc, {
+      startY: 125,
+      head: [["Earnings", "Amount"]],
+      body: earningsTable.slice(1),
+      theme: 'striped',
+      headStyles: { fillColor: [70, 130, 180] },
+      styles: { fontSize: 10 },
+      margin: { left: 14 },
+      tableWidth: 80
+    });
+    
+    autoTable(doc, {
+      startY: 125,
+      head: [["Deductions", "Amount"]],
+      body: deductionsTable.slice(1),
+      theme: 'striped',
+      headStyles: { fillColor: [70, 130, 180] },
+      styles: { fontSize: 10 },
+      margin: { left: pageWidth - 94 },
+      tableWidth: 80
+    });
+    
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, 200, pageWidth - 28, 10, 'F');
+    doc.setFontSize(11);
+    doc.text("Net Salary:", 16, 207);
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text(`₹ ${payslip.net_salary.toFixed(2)}`, pageWidth - 16, 207, { align: "right" });
+    
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.text("This is a computer-generated payslip and doesn't require a signature.", pageWidth / 2, pageHeight - 10, { align: "center" });
+    doc.text("Generated on: " + format(new Date(), "dd/MM/yyyy"), pageWidth / 2, pageHeight - 5, { align: "center" });
+    
+    doc.save(`Payslip_${employee.name?.replace(/\s+/g, '_')}_${payslip.month}_${payslip.year}.pdf`);
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900"></div>
       </div>
     );
   }
 
   if (!employee) {
-    return <div>Employee not found</div>;
+    return (
+      <div className="text-center p-4">
+        <h2 className="text-2xl font-bold">Employee not found</h2>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Employee Performance</h2>
-        <div className="flex items-center gap-4">
-          <Select
-            value={selectedMonth}
-            onValueChange={setSelectedMonth}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {getMonthOptions().map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button 
-            onClick={generatePDF}
-            className="flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Download Report
-          </Button>
+    <div className="container mx-auto py-6">
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">{employee.name}</h1>
+          <p className="text-gray-600">{employee.designation}</p>
+          {employee.department && <p className="text-gray-600">Department: {employee.department}</p>}
+          {employee.date_of_joining && 
+            <p className="text-gray-600">
+              Joined on: {format(new Date(employee.date_of_joining), "MMMM dd, yyyy")}
+            </p>
+          }
         </div>
+        <Button variant="outline" onClick={() => navigate("/admin/reports")}>
+          Back to Reports
+        </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            {employee?.profile_photo && (
-              <img
-                src={employee.profile_photo}
-                alt={employee.name || ''}
-                className="h-16 w-16 rounded-full object-cover"
-              />
-            )}
-            <div>
-              <CardTitle>{employee?.name}</CardTitle>
-              <p className="text-sm text-muted-foreground">{employee?.designation}</p>
-              <p className="text-sm text-muted-foreground">Employee ID: {employee?.employee_id}</p>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-4">
-        <StatCard
-          title="Present Days"
-          value={analytics.presentDays}
-          icon={CheckCircle2}
-        />
-        <StatCard
-          title="Absent Days"
-          value={analytics.absentDays}
-          icon={XCircle}
-        />
-        <StatCard
-          title="Completed Tasks"
-          value={analytics.completedTasks}
-          icon={CalendarDays}
-        />
-        <StatCard
-          title="Pending Tasks"
-          value={analytics.pendingTasks}
-          icon={Clock}
-        />
-      </div>
-
-      <Tabs defaultValue="attendance" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="attendance">Attendance Records</TabsTrigger>
-          <TabsTrigger value="tasks">Task Status</TabsTrigger>
-          <TabsTrigger value="leaves">Leave Requests</TabsTrigger>
-          <TabsTrigger value="profile">Profile Information</TabsTrigger>
+      <Tabs defaultValue="payslip" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-7">
+          <TabsTrigger value="payslip">
+            <FileText className="mr-1 h-4 w-4" />
+            Payslip
+          </TabsTrigger>
+          <TabsTrigger value="payslipHistory">
+            <CalendarIcon className="mr-1 h-4 w-4" />
+            History
+          </TabsTrigger>
+          <TabsTrigger value="professionalData">
+            <BriefcaseIcon className="mr-1 h-4 w-4" />
+            Experience
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            <FileUp className="mr-1 h-4 w-4" />
+            Documents
+          </TabsTrigger>
+          <TabsTrigger value="salaryInfo">
+            <CreditCard className="mr-1 h-4 w-4" />
+            Salary
+          </TabsTrigger>
+          <TabsTrigger value="profileInfo">
+            <UserIcon className="mr-1 h-4 w-4" />
+            Profile
+          </TabsTrigger>
+          <TabsTrigger value="attendanceReport">
+            <Building className="mr-1 h-4 w-4" />
+            Attendance
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="attendance" className="space-y-4">
+        <TabsContent value="payslip">
           <Card>
             <CardHeader>
-              <CardTitle>Attendance Records - {format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy')}</CardTitle>
+              <CardTitle className="text-xl flex items-center">
+                <FileText className="mr-2 h-5 w-5" />
+                Generate Payslip
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <AttendanceTable 
-                showTodayOnly={false} 
-                userEmail={employee?.email || ''} 
-                selectedMonth={selectedMonth}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="tasks" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Task Overview - {format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px]">
-                <div className="space-y-4">
-                  {tasks.map((task) => (
-                    <div key={task.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{task.title}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Due: {new Date(task.due_date || '').toLocaleDateString()}
-                        </p>
-                      </div>
-                      <Badge
-                        className={
-                          task.status === 'completed'
-                            ? 'bg-green-500'
-                            : task.status === 'in-progress'
-                            ? 'bg-yellow-500'
-                            : 'bg-gray-500'
-                        }
-                      >
-                        {task.status}
-                      </Badge>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleCreatePayslip)} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <FormField
+                        control={form.control}
+                        name="month"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Month</FormLabel>
+                            <Select 
+                              onValueChange={field.onChange} 
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select month" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {months.map((month) => (
+                                  <SelectItem key={month} value={month}>
+                                    {month}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
                     </div>
-                  ))}
-                  {tasks.length === 0 && (
-                    <p className="text-center text-muted-foreground">No tasks assigned for this month</p>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="leaves" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Leave Requests History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px]">
-                <div className="space-y-4">
-                  {leaveRequests.map((request) => (
-                    <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{request.type}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          From: {new Date(request.start_date).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          To: {new Date(request.end_date).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Reason: {request.reason}
-                        </p>
-                      </div>
-                      <Badge
-                        className={
-                          request.status === 'approved'
-                            ? 'bg-green-500'
-                            : request.status === 'rejected'
-                            ? 'bg-red-500'
-                            : 'bg-yellow-500'
-                        }
-                      >
-                        {request.status}
-                      </Badge>
+                    <div className="space-y-2">
+                      <FormField
+                        control={form.control}
+                        name="year"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Year</FormLabel>
+                            <Select 
+                              onValueChange={field.onChange} 
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select year" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {years.map((year) => (
+                                  <SelectItem key={year} value={year}>
+                                    {year}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
                     </div>
-                  ))}
-                  {leaveRequests.length === 0 && (
-                    <p className="text-center text-muted-foreground">No leave requests found</p>
-                  )}
-                </div>
-              </ScrollArea>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-6">
+                    <div>
+                      <h3 className="text-lg font-medium mb-2">Earnings</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="basic_salary"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Basic Salary (Gross: {salaryInfo?.gross_salary || 0})</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                  value={field.value.toString()}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="hra"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>HRA</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                  value={field.value.toString()}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="da"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>DA</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                  value={field.value.toString()}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="ta"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>TA</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                  value={field.value.toString()}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="other_allowances"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Other Allowances</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                  value={field.value.toString()}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-lg font-medium mb-2">Deductions</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="epf_deduction"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>EPF Deduction</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                  value={field.value.toString()}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="other_deductions"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Other Deductions</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                  value={field.value.toString()}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 p-4 rounded">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-medium">Net Salary:</span>
+                        <span className="text-lg font-bold">₹ {netSalary.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end">
+                    <Button type="submit">
+                      Generate Payslip
+                    </Button>
+                  </div>
+                </form>
+              </Form>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="profile" className="space-y-4">
+        <TabsContent value="payslipHistory">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Personal Information</CardTitle>
-                {!isEditing && (
-                  <Button onClick={() => setIsEditing(true)}>Edit</Button>
-                )}
-              </div>
+              <CardTitle className="text-xl flex items-center">
+                <CalendarIcon className="mr-2 h-5 w-5" />
+                Payslip History
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="date_of_birth">Date of Birth</Label>
-                  <Input
-                    id="date_of_birth"
-                    type="date"
-                    value={profileData.date_of_birth}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, date_of_birth: e.target.value }))}
-                    disabled={!isEditing}
-                  />
+              {payslips.length === 0 ? (
+                <div className="text-center p-8">
+                  <p className="text-gray-500">No payslips generated yet.</p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fathers_name">Father's Name</Label>
-                  <Input
-                    id="fathers_name"
-                    value={profileData.fathers_name}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, fathers_name: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="mothers_name">Mother's Name</Label>
-                  <Input
-                    id="mothers_name"
-                    value={profileData.mothers_name}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, mothers_name: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    value={profileData.address}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contact_number">Contact Number</Label>
-                  <Input
-                    id="contact_number"
-                    value={profileData.contact_number}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, contact_number: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="emergency_contact">Emergency Contact</Label>
-                  <Input
-                    id="emergency_contact"
-                    value={profileData.emergency_contact}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, emergency_contact: e.target.value }))}
-                    disabled={!isEditing}
-                  />
-                </div>
-              </div>
-              {isEditing && (
-                <div className="flex justify-end gap-4 mt-6">
-                  <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
-                  <Button onClick={handleProfileUpdate}>Save Changes</Button>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {payslips.map((payslip) => (
+                    <Card key={payslip.id} className="overflow-hidden">
+                      <CardHeader className="bg-gray-50 py-3">
+                        <CardTitle className="text-lg flex justify-between items-center">
+                          <span>{payslip.month} {payslip.year}</span>
+                          <span className="text-base font-normal">₹ {payslip.net_salary.toFixed(2)}</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4">
+                        <div className="grid grid-cols-2 gap-2 mb-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Basic</p>
+                            <p className="font-medium">₹ {payslip.basic_salary.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">HRA</p>
+                            <p className="font-medium">₹ {payslip.hra.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">DA</p>
+                            <p className="font-medium">₹ {payslip.da.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">EPF</p>
+                            <p className="font-medium">₹ {payslip.epf_deduction.toFixed(2)}</p>
+                          </div>
+                        </div>
+                        <div className="flex justify-end space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => generatePayslipPDF(payslip)}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => generatePayslipPDF(payslip)}
+                          >
+                            <Printer className="h-4 w-4 mr-1" />
+                            Print
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="professionalData">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <BriefcaseIcon className="mr-2 h-5 w-5" />
+                Professional Experience
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  {professionalExperience.length === 0 ? (
+                    <div className="text-center p-8">
+                      <p className="text-gray-500">No professional experience data available.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {professionalExperience.map((exp) => (
+                        <Card key={exp.id}>
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h3 className="font-bold">{exp.company_name}</h3>
+                                <p className="text-gray-600">{exp.position}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm text-gray-500">
+                                  {format(new Date(exp.start_date), "MMM yyyy")} - 
+                                  {exp.end_date 
+                                    ? format(new Date(exp.end_date), " MMM yyyy") 
+                                    : " Present"}
+                                </p>
+                              </div>
+                            </div>
+                            {exp.responsibilities && (
+                              <div className="mt-2">
+                                <p className="text-sm">{exp.responsibilities}</p>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Add Experience</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="company_name">Company Name</Label>
+                          <Input 
+                            id="company_name" 
+                            value={newExperience.company_name}
+                            onChange={(e) => setNewExperience({...newExperience, company_name: e.target.value})}
+                            placeholder="Company name" 
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="position">Position</Label>
+                          <Input 
+                            id="position" 
+                            value={newExperience.position}
+                            onChange={(e) => setNewExperience({...newExperience, position: e.target.value})}
+                            placeholder="Job title" 
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="start_date">Start Date</Label>
+                          <Input 
+                            id="start_date" 
+                            type="date" 
+                            value={newExperience.start_date}
+                            onChange={(e) => setNewExperience({...newExperience, start_date: e.target.value})}
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="end_date">End Date (leave empty if current)</Label>
+                          <Input 
+                            id="end_date" 
+                            type="date" 
+                            value={newExperience.end_date}
+                            onChange={(e) => setNewExperience({...newExperience, end_date: e.target.value})}
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="responsibilities">Responsibilities</Label>
+                          <Textarea 
+                            id="responsibilities" 
+                            value={newExperience.responsibilities}
+                            onChange={(e) => setNewExperience({...newExperience, responsibilities: e.target.value})}
+                            placeholder="Job responsibilities and achievements" 
+                            rows={3}
+                          />
+                        </div>
+                        
+                        <Button 
+                          className="w-full"
+                          onClick={handleAddExperience}
+                          disabled={!newExperience.company_name || !newExperience.position || !newExperience.start_date}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add Experience
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="documents">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <FileText className="mr-2 h-5 w-5" />
+                Employee Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  {documents.length === 0 ? (
+                    <div className="text-center p-8">
+                      <p className="text-gray-500">No documents uploaded yet.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {documents.map((doc) => (
+                        <Card key={doc.id}>
+                          <CardContent className="p-4 flex justify-between items-center">
+                            <div>
+                              <h3 className="font-bold">{doc.document_name}</h3>
+                              <p className="text-gray-600 text-sm">{doc.document_type}</p>
+                              <p className="text-gray-500 text-xs">
+                                {format(new Date(doc.uploaded_at), "MMM dd, yyyy")}
+                              </p>
+                            </div>
+                            <div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(doc.file_path, '_blank')}
+                              >
+                                <Download className="h-4 w-4 mr-1" />
+                                Download
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Upload Document</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="document_type">Document Type</Label>
+                          <Select 
+                            value={documentType}
+                            onValueChange={setDocumentType}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select document type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {documentTypes.map((type) => (
+                                <SelectItem key={type} value={type}>
+                                  {type}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="document_name">Document Name</Label>
+                          <Input 
+                            id="document_name" 
+                            value={documentName}
+                            onChange={(e) => setDocumentName(e.target.value)}
+                            placeholder="Document name" 
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="document_file">File</Label>
+                          <Input 
+                            id="document_file" 
+                            type="file" 
+                            onChange={handleFileChange}
+                          />
+                        </div>
+                        
+                        <Button 
+                          className="w-full"
+                          onClick={handleUploadDocument}
+                          disabled={uploadingDocument || !selectedFile || !documentType || !documentName}
+                        >
+                          {uploadingDocument ? (
+                            <div className="flex items-center">
+                              <div className="h-4 w-4 animate-spin mr-2 border-2 border-gray-300 border-t-white rounded-full"></div>
+                              Uploading...
+                            </div>
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4 mr-1" />
+                              Upload Document
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="salaryInfo">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <CreditCard className="mr-2 h-5 w-5" />
+                Salary Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Current Salary</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {salaryInfo ? (
+                      <div className="space-y-4">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Gross Salary:</span>
+                          <span className="font-semibold">₹ {salaryInfo.gross_salary.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">EPF Percentage:</span>
+                          <span className="font-semibold">{salaryInfo.epf_percentage}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Total Deduction:</span>
+                          <span className="font-semibold">₹ {salaryInfo.total_deduction.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Net Pay:</span>
+                          <span className="font-semibold">₹ {salaryInfo.net_pay.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>Last Updated:</span>
+                          <span>{salaryInfo.updated_at ? format(new Date(salaryInfo.updated_at), "dd/MM/yyyy") : 'Never'}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center p-4">
+                        <p className="text-gray-500">No salary information available.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Update Salary</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="gross_salary">Gross Salary</Label>
+                        <Input 
+                          id="gross_salary" 
+                          type="number" 
+                          placeholder="0.00"
+                          defaultValue={salaryInfo?.gross_salary || 0}
+                          onChange={(e) => {
+                            const newSalaryInfo = {...(salaryInfo || {
+                              id: '',
+                              employee_id: employeeId || '',
+                              gross_salary: 0,
+                              epf_percentage: 0,
+                              total_deduction: 0,
+                              net_pay: 0,
+                              created_at: new Date().toISOString(),
+                              updated_at: null
+                            })};
+                            newSalaryInfo.gross_salary = parseFloat(e.target.value) || 0;
+                            setSalaryInfo(newSalaryInfo as SalaryInformation);
+                          }}
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="epf_percentage">EPF Percentage</Label>
+                        <Input 
+                          id="epf_percentage" 
+                          type="number" 
+                          placeholder="0"
+                          defaultValue={salaryInfo?.epf_percentage || 0}
+                          onChange={(e) => {
+                            const newSalaryInfo = {...(salaryInfo || {
+                              id: '',
+                              employee_id: employeeId || '',
+                              gross_salary: 0,
+                              epf_percentage: 0,
+                              total_deduction: 0,
+                              net_pay: 0,
+                              created_at: new Date().toISOString(),
+                              updated_at: null
+                            })};
+                            newSalaryInfo.epf_percentage = parseFloat(e.target.value) || 0;
+                            setSalaryInfo(newSalaryInfo as SalaryInformation);
+                          }}
+                        />
+                      </div>
+                      
+                      <Button 
+                        className="w-full"
+                        onClick={() => salaryInfo && handleUpdateSalaryInfo(salaryInfo)}
+                      >
+                        Update Salary Information
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="profileInfo">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <UserIcon className="mr-2 h-5 w-5" />
+                Profile Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Personal Details</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="profile_name">Full Name</Label>
+                      <Input 
+                        id="profile_name" 
+                        value={employee.name || ''}
+                        onChange={(e) => handleUpdateProfile({ name: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_email">Email Address</Label>
+                      <Input 
+                        id="profile_email" 
+                        value={employee.email || ''}
+                        readOnly
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_dob">Date of Birth</Label>
+                      <Input 
+                        id="profile_dob" 
+                        type="date"
+                        value={employee.date_of_birth || ''}
+                        onChange={(e) => handleUpdateProfile({ date_of_birth: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_address">Address</Label>
+                      <Textarea 
+                        id="profile_address" 
+                        value={employee.address || ''}
+                        onChange={(e) => handleUpdateProfile({ address: e.target.value })}
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_contact">Contact Number</Label>
+                      <Input 
+                        id="profile_contact" 
+                        value={employee.contact_number || ''}
+                        onChange={(e) => handleUpdateProfile({ contact_number: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_emergency">Emergency Contact</Label>
+                      <Input 
+                        id="profile_emergency" 
+                        value={employee.emergency_contact || ''}
+                        onChange={(e) => handleUpdateProfile({ emergency_contact: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Employment Details</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="profile_employeeId">Employee ID</Label>
+                      <Input 
+                        id="profile_employeeId" 
+                        value={employee.employee_id || ''}
+                        readOnly
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_designation">Designation</Label>
+                      <Input 
+                        id="profile_designation" 
+                        value={employee.designation || ''}
+                        onChange={(e) => handleUpdateProfile({ designation: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_department">Department</Label>
+                      <Select 
+                        value={employee.department || ''}
+                        onValueChange={(value) => handleUpdateProfile({ department: value })}
+                      >
+                        <SelectTrigger id="profile_department">
+                          <SelectValue placeholder="Select department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {departments.map((dept) => (
+                            <SelectItem key={dept} value={dept}>
+                              {dept}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_doj">Date of Joining</Label>
+                      <Input 
+                        id="profile_doj" 
+                        type="date"
+                        value={employee.date_of_joining || ''}
+                        onChange={(e) => handleUpdateProfile({ date_of_joining: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_fathersName">Father's Name</Label>
+                      <Input 
+                        id="profile_fathersName" 
+                        value={employee.fathers_name || ''}
+                        onChange={(e) => handleUpdateProfile({ fathers_name: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_mothersName">Mother's Name</Label>
+                      <Input 
+                        id="profile_mothersName" 
+                        value={employee.mothers_name || ''}
+                        onChange={(e) => handleUpdateProfile({ mothers_name: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="attendanceReport">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <Building className="mr-2 h-5 w-5" />
+                Attendance Report
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <Card className="bg-green-50">
+                  <CardContent className="p-4 flex items-center">
+                    <CheckCircle2 className="h-10 w-10 mr-4 text-green-500" />
+                    <div>
+                      <p className="text-gray-600 text-sm">Present Days</p>
+                      <p className="text-2xl font-bold">{attendanceData.presentDays}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-red-50">
+                  <CardContent className="p-4 flex items-center">
+                    <XCircle className="h-10 w-10 mr-4 text-red-500" />
+                    <div>
+                      <p className="text-gray-600 text-sm">Absent Days</p>
+                      <p className="text-2xl font-bold">{attendanceData.absentDays}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-blue-50">
+                  <CardContent className="p-4 flex items-center">
+                    <CalendarDays className="h-10 w-10 mr-4 text-blue-500" />
+                    <div>
+                      <p className="text-gray-600 text-sm">Leave Days</p>
+                      <p className="text-2xl font-bold">{attendanceData.leaveDays}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Attendance Details</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center p-4">
+                    {/* This component would display detailed attendance logs */}
+                    <p className="text-gray-500">Detailed attendance logs will be displayed here.</p>
+                  </div>
+                </CardContent>
+              </Card>
             </CardContent>
           </Card>
         </TabsContent>

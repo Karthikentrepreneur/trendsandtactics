@@ -22,8 +22,7 @@ const Tasks = () => {
         .from('profiles')
         .select('*')
         .eq('role', 'employee');
-      // Add proper type assertion here
-      setEmployees((data || []) as User[]);
+      setEmployees(data as User[] || []);
     };
     fetchEmployees();
   }, []);

@@ -40,7 +40,6 @@ const Reports = () => {
         
         if (data) {
           console.log('Fetched profiles:', data);
-          // Add proper type assertion here
           setEmployees(data as User[]);
         }
       } catch (error) {

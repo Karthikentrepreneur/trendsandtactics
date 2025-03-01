@@ -34,7 +34,7 @@ const TaskCard = ({ task }) => {
           .select('*');
         
         if (error) throw error;
-        setEmployees((data || []) as User[]);
+        setEmployees(data as User[] || []);
       } catch (error) {
         console.error("Error fetching employees:", error);
       }

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { User } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,54 +8,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import EditUserDialog from "./EditUserDialog";
 
-// Since EditUserDialog doesn't exist in the codebase yet, we'll create a placeholder interface
-interface EditUserDialogProps {
-  user: User;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onUserUpdated: (updatedUser: User) => void;
-}
-
-// Create a placeholder EditUserDialog component
-const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: EditUserDialogProps) => {
-  return <div>Edit User Dialog Placeholder</div>;
-};
-
-interface UserListProps {
-  users: User[];
-  onUserDeleted: () => void;
-  loading: boolean;
-}
-
-const UserList = ({ users, onUserDeleted, loading }: UserListProps) => {
-  const [allUsers, setAllUsers] = useState<User[]>([]);
+const UserList = () => {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [editUser, setEditUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        setIsLoading(true);
-        
         const { data, error } = await supabase
           .from('profiles')
-          .select('*');
+          .select('*')
+          .order('name');
         
         if (error) throw error;
-        setAllUsers((data || []) as unknown as User[]);
+        setUsers(data as User[] || []);
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error("Error fetching users:", error);
         toast({
           title: "Error",
           description: "Failed to fetch users",
           variant: "destructive",
         });
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
     
@@ -67,7 +47,7 @@ const UserList = ({ users, onUserDeleted, loading }: UserListProps) => {
     if (!deleteUserId) return;
 
     try {
-      setIsLoading(true);
+      setLoading(true);
       
       // First delete the user from auth
       const { data: userData } = await supabase
@@ -92,7 +72,7 @@ const UserList = ({ users, onUserDeleted, loading }: UserListProps) => {
       if (profileError) throw profileError;
 
       // Update local state
-      setAllUsers(allUsers.filter(user => user.id !== deleteUserId));
+      setUsers(users.filter(user => user.id !== deleteUserId));
       
       toast({
         title: "Success",
@@ -106,20 +86,21 @@ const UserList = ({ users, onUserDeleted, loading }: UserListProps) => {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
       setDeleteUserId(null);
     }
   };
 
   const handleUserUpdated = (updatedUser: User) => {
-    onUserDeleted();
+    setUsers(users.map(user => user.id === updatedUser.id ? updatedUser : user));
+    setEditUser(null);
     toast({
       title: "Success",
       description: "User updated successfully",
     });
   };
 
-  const filteredUsers = allUsers.filter(user => 
+  const filteredUsers = users.filter(user => 
     user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.role?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -142,7 +123,7 @@ const UserList = ({ users, onUserDeleted, loading }: UserListProps) => {
           <CardTitle>User List</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading || loading ? (
+          {loading ? (
             <div className="flex justify-center p-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
             </div>
