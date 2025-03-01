@@ -14,7 +14,7 @@ export interface User {
   contact_number: string | null;
   emergency_contact: string | null;
   profile_photo: string | null;
-  department: string | null; // Made the department property optional by marking it nullable
+  department: string | null; // Keep as nullable
 }
 
 export interface UserFormData {
