@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { UserFormData } from "@/types/user";
 
+// Define the schema to match exactly the UserFormData interface
 const employeeSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
@@ -33,6 +35,7 @@ const employeeSchema = z.object({
   role: z.enum(["admin", "employee", "manager"]),
 });
 
+// This ensures type safety
 type EmployeeSchemaType = z.infer<typeof employeeSchema>;
 
 interface EmployeeFormProps {

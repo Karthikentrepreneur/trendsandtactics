@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -40,16 +41,17 @@ interface Payslip {
   created_at: string;
 }
 
+// Define a schema that matches the PayslipFormValues interface
 const payslipFormSchema = z.object({
   month: z.string().min(1, "Month is required"),
   year: z.string().min(1, "Year is required"),
-  basic_salary: z.string().transform(val => Number(val || 0)),
-  hra: z.string().transform(val => Number(val || 0)),
-  da: z.string().transform(val => Number(val || 0)),
-  ta: z.string().transform(val => Number(val || 0)),
-  other_allowances: z.string().transform(val => Number(val || 0)),
-  epf_deduction: z.string().transform(val => Number(val || 0)),
-  other_deductions: z.string().transform(val => Number(val || 0)),
+  basic_salary: z.coerce.number().default(0),
+  hra: z.coerce.number().default(0),
+  da: z.coerce.number().default(0),
+  ta: z.coerce.number().default(0),
+  other_allowances: z.coerce.number().default(0),
+  epf_deduction: z.coerce.number().default(0),
+  other_deductions: z.coerce.number().default(0),
 });
 
 type PayslipSchemaType = z.infer<typeof payslipFormSchema>;
@@ -71,6 +73,7 @@ const EmployeePerformance = () => {
   
   const years = Array.from({ length: 11 }, (_, i) => (currentDate.getFullYear() - 5 + i).toString());
 
+  // Use the schema with the form
   const form = useForm<PayslipFormValues>({
     resolver: zodResolver(payslipFormSchema),
     defaultValues: {
