@@ -256,7 +256,7 @@ const EmployeePerformance = () => {
     doc.rect(0, 0, pageWidth, 30, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
-    doc.text("HRMS", pageWidth / 2, 15, { align: "center" });
+    doc.text("Trends & Tactics", pageWidth / 2, 15, { align: "center" });
     doc.setFontSize(14);
     doc.text("Payslip for " + payslip.month + " " + payslip.year, pageWidth / 2, 25, { align: "center" });
     
