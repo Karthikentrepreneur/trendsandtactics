@@ -1,6 +1,6 @@
+
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { employeeService } from "@/services/employeeService";
+import { useParams, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import {
   Tabs,
@@ -13,19 +13,102 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import type { User } from "@/types/user";
-import type { BankInformation, ProfessionalExperience, DocumentUpload, EmployeeDocument, SalaryInformation } from "@/types/employee";
-import { Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { CalendarIcon, Download, FileText, Plus, Printer } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { format } from "date-fns";
+
+// Define types
+interface Payslip {
+  id: string;
+  employee_id: string;
+  month: string;
+  year: string;
+  basic_salary: number;
+  hra: number;
+  da: number;
+  ta: number;
+  other_allowances: number;
+  epf_deduction: number;
+  other_deductions: number;
+  net_salary: number;
+  created_at: string;
+}
+
+// Form schema
+const payslipFormSchema = z.object({
+  month: z.string().min(1, "Month is required"),
+  year: z.string().min(1, "Year is required"),
+  basic_salary: z.string().transform(val => parseFloat(val)),
+  hra: z.string().transform(val => parseFloat(val)),
+  da: z.string().transform(val => parseFloat(val)),
+  ta: z.string().transform(val => parseFloat(val)),
+  other_allowances: z.string().transform(val => parseFloat(val)),
+  epf_deduction: z.string().transform(val => parseFloat(val)),
+  other_deductions: z.string().transform(val => parseFloat(val)),
+});
+
+type PayslipFormValues = z.infer<typeof payslipFormSchema>;
 
 const EmployeePerformance = () => {
   const { employeeId } = useParams();
   const [employee, setEmployee] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [bankInfo, setBankInfo] = useState<BankInformation | null>(null);
-  const [experiences, setExperiences] = useState<ProfessionalExperience[]>([]);
-  const [salaryInfo, setSalaryInfo] = useState<SalaryInformation | null>(null);
-  const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
+  const [payslips, setPayslips] = useState<Payslip[]>([]);
+  const [currentDate] = useState(new Date());
+  const [netSalary, setNetSalary] = useState<number>(0);
+  const navigate = useNavigate();
   const { toast } = useToast();
+
+  const months = [
+    "January", "February", "March", "April", "May", "June", 
+    "July", "August", "September", "October", "November", "December"
+  ];
+  
+  const years = Array.from({ length: 11 }, (_, i) => (currentDate.getFullYear() - 5 + i).toString());
+
+  // Setup form
+  const form = useForm<PayslipFormValues>({
+    resolver: zodResolver(payslipFormSchema),
+    defaultValues: {
+      month: months[currentDate.getMonth()],
+      year: currentDate.getFullYear().toString(),
+      basic_salary: "0",
+      hra: "0",
+      da: "0",
+      ta: "0",
+      other_allowances: "0",
+      epf_deduction: "0",
+      other_deductions: "0",
+    },
+  });
+
+  // Watch form values to calculate net salary
+  const watchAllFields = form.watch();
+  
+  useEffect(() => {
+    const { basic_salary, hra, da, ta, other_allowances, epf_deduction, other_deductions } = watchAllFields;
+    
+    const totalEarnings = 
+      parseFloat(basic_salary || "0") + 
+      parseFloat(hra || "0") + 
+      parseFloat(da || "0") + 
+      parseFloat(ta || "0") + 
+      parseFloat(other_allowances || "0");
+    
+    const totalDeductions = 
+      parseFloat(epf_deduction || "0") + 
+      parseFloat(other_deductions || "0");
+    
+    setNetSalary(totalEarnings - totalDeductions);
+  }, [watchAllFields]);
 
   useEffect(() => {
     fetchEmployeeData();
@@ -45,12 +128,7 @@ const EmployeePerformance = () => {
 
       if (employeeData) {
         setEmployee(employeeData);
-        await Promise.all([
-          fetchBankInfo(),
-          fetchExperiences(),
-          fetchSalaryInfo(),
-          fetchDocuments(),
-        ]);
+        await fetchPayslips();
       }
       setLoading(false);
     } catch (error) {
@@ -64,210 +142,222 @@ const EmployeePerformance = () => {
     }
   };
 
-  const fetchBankInfo = async () => {
+  const fetchPayslips = async () => {
     if (!employeeId) return;
-    const { data } = await supabase
-      .from("bank_information")
+    
+    const { data, error } = await supabase
+      .from("payslips")
       .select("*")
       .eq("employee_id", employeeId)
-      .single();
-    setBankInfo(data);
-  };
-
-  const fetchExperiences = async () => {
-    if (!employeeId) return;
-    const { data } = await supabase
-      .from("professional_experience")
-      .select("*")
-      .eq("employee_id", employeeId);
-    setExperiences(data || []);
-  };
-
-  const fetchSalaryInfo = async () => {
-    if (!employeeId) return;
-    const { data } = await supabase
-      .from("salary_information")
-      .select("*")
-      .eq("employee_id", employeeId)
-      .single();
-    setSalaryInfo(data);
-  };
-
-  const fetchDocuments = async () => {
-    if (!employeeId) return;
-    const { data } = await supabase
-      .from("employee_documents")
-      .select("*")
-      .eq("employee_id", employeeId);
-    setDocuments(data || []);
-  };
-
-  const updatePersonalInfo = async (formData: any) => {
-    try {
-      if (!employeeId) return;
-
-      await employeeService.updatePersonalInfo(employeeId, formData);
-
-      toast({
-        title: "Success",
-        description: "Personal information updated successfully",
-      });
-      
-      await fetchEmployeeData();
-    } catch (error) {
-      console.error("Error updating personal info:", error);
+      .order("created_at", { ascending: false });
+    
+    if (error) {
+      console.error("Error fetching payslips:", error);
       toast({
         title: "Error",
-        description: "Failed to update personal information",
+        description: "Failed to fetch payslip data",
         variant: "destructive",
       });
+      return;
     }
+    
+    setPayslips(data || []);
   };
 
-  const updateBankInfo = async (formData: any) => {
+  const handleCreatePayslip = async (values: PayslipFormValues) => {
     try {
-      if (!employeeId) return;
+      if (!employeeId || !employee) return;
 
-      await employeeService.updateBankInfo(employeeId, formData);
+      // Check if payslip for this month and year already exists
+      const { data: existingPayslip } = await supabase
+        .from("payslips")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .eq("month", values.month)
+        .eq("year", values.year)
+        .maybeSingle();
 
-      toast({
-        title: "Success",
-        description: "Bank information updated successfully",
-      });
+      // Calculate net salary
+      const totalEarnings = 
+        values.basic_salary + 
+        values.hra + 
+        values.da + 
+        values.ta + 
+        values.other_allowances;
       
-      await fetchBankInfo();
-    } catch (error) {
-      console.error("Error updating bank info:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update bank information",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const addExperience = async (formData: any) => {
-    try {
-      if (!employeeId) return;
-
-      await employeeService.addExperience(employeeId, formData);
-
-      toast({
-        title: "Success",
-        description: "Professional experience added successfully",
-      });
+      const totalDeductions = 
+        values.epf_deduction + 
+        values.other_deductions;
       
-      await fetchExperiences();
-    } catch (error) {
-      console.error("Error adding experience:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add professional experience",
-        variant: "destructive",
-      });
-    }
-  };
+      const netSalary = totalEarnings - totalDeductions;
 
-  const deleteExperience = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from("professional_experience")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Experience deleted successfully",
-      });
+      let result;
       
-      await fetchExperiences();
-    } catch (error) {
-      console.error("Error deleting experience:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete experience",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const uploadDocument = async (file: File, name: string, type: string) => {
-    try {
-      if (!employeeId) return;
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${employeeId}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('employee-documents')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { error: dbError } = await supabase
-        .from('employee_documents')
-        .insert({
-          employee_id: employeeId,
-          document_name: name,
-          document_type: type,
-          file_path: filePath,
-          uploaded_by: employeeId,
+      if (existingPayslip) {
+        // Update existing payslip
+        result = await supabase
+          .from("payslips")
+          .update({
+            basic_salary: values.basic_salary,
+            hra: values.hra,
+            da: values.da,
+            ta: values.ta,
+            other_allowances: values.other_allowances,
+            epf_deduction: values.epf_deduction,
+            other_deductions: values.other_deductions,
+            net_salary: netSalary,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", existingPayslip.id);
+          
+        toast({
+          title: "Success",
+          description: "Payslip updated successfully",
         });
-
-      if (dbError) throw dbError;
-
-      toast({
-        title: "Success",
-        description: "Document uploaded successfully",
-      });
+      } else {
+        // Create new payslip
+        result = await supabase
+          .from("payslips")
+          .insert({
+            employee_id: employeeId,
+            month: values.month,
+            year: values.year,
+            basic_salary: values.basic_salary,
+            hra: values.hra,
+            da: values.da,
+            ta: values.ta,
+            other_allowances: values.other_allowances,
+            epf_deduction: values.epf_deduction,
+            other_deductions: values.other_deductions,
+            net_salary: netSalary
+          });
+          
+        toast({
+          title: "Success",
+          description: "Payslip created successfully",
+        });
+      }
       
-      await fetchDocuments();
+      if (result.error) throw result.error;
+      
+      // Refresh payslips list
+      await fetchPayslips();
+      
     } catch (error) {
-      console.error("Error uploading document:", error);
+      console.error("Error creating/updating payslip:", error);
       toast({
         title: "Error",
-        description: "Failed to upload document",
+        description: "Failed to create/update payslip",
         variant: "destructive",
       });
     }
   };
 
-  const updateSalaryInfo = async (formData: any) => {
-    try {
-      if (!employeeId) return;
-
-      await employeeService.updateSalaryInfo(employeeId, formData);
-
-      toast({
-        title: "Success",
-        description: "Salary information updated successfully",
-      });
-      
-      await fetchSalaryInfo();
-    } catch (error) {
-      console.error("Error updating salary info:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update salary information",
-        variant: "destructive",
-      });
-    }
+  const generatePayslipPDF = (payslip: Payslip) => {
+    if (!employee) return;
+    
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    // Add company logo and header
+    doc.setFillColor(52, 101, 164);
+    doc.rect(0, 0, pageWidth, 30, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.text("HRMS", pageWidth / 2, 15, { align: "center" });
+    doc.setFontSize(14);
+    doc.text("Payslip for " + payslip.month + " " + payslip.year, pageWidth / 2, 25, { align: "center" });
+    
+    // Employee information
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.text("Employee Details", 14, 40);
+    
+    const employeeInfo = [
+      ["Employee Name:", employee.name || ""],
+      ["Employee ID:", employee.employee_id || ""],
+      ["Designation:", employee.designation || ""],
+      ["Department:", ""],
+      ["Bank Account:", ""],
+    ];
+    
+    autoTable(doc, {
+      startY: 45,
+      head: [],
+      body: employeeInfo,
+      theme: 'plain',
+      styles: { fontSize: 10 },
+      columnStyles: { 0: { cellWidth: 40 } }
+    });
+    
+    // Salary details
+    doc.text("Salary Details", 14, 90);
+    
+    const earningsTable = [
+      ["Earnings", "Amount"],
+      ["Basic Salary", `₹ ${payslip.basic_salary.toFixed(2)}`],
+      ["HRA", `₹ ${payslip.hra.toFixed(2)}`],
+      ["DA", `₹ ${payslip.da.toFixed(2)}`],
+      ["TA", `₹ ${payslip.ta.toFixed(2)}`],
+      ["Other Allowances", `₹ ${payslip.other_allowances.toFixed(2)}`],
+      ["Total Earnings", `₹ ${(payslip.basic_salary + payslip.hra + payslip.da + payslip.ta + payslip.other_allowances).toFixed(2)}`]
+    ];
+    
+    const deductionsTable = [
+      ["Deductions", "Amount"],
+      ["EPF", `₹ ${payslip.epf_deduction.toFixed(2)}`],
+      ["Other Deductions", `₹ ${payslip.other_deductions.toFixed(2)}`],
+      ["Total Deductions", `₹ ${(payslip.epf_deduction + payslip.other_deductions).toFixed(2)}`]
+    ];
+    
+    // Earnings table
+    autoTable(doc, {
+      startY: 95,
+      head: [["Earnings", "Amount"]],
+      body: earningsTable.slice(1),
+      theme: 'striped',
+      headStyles: { fillColor: [70, 130, 180] },
+      styles: { fontSize: 10 },
+      margin: { left: 14 },
+      tableWidth: 80
+    });
+    
+    // Deductions table
+    autoTable(doc, {
+      startY: 95,
+      head: [["Deductions", "Amount"]],
+      body: deductionsTable.slice(1),
+      theme: 'striped',
+      headStyles: { fillColor: [70, 130, 180] },
+      styles: { fontSize: 10 },
+      margin: { left: pageWidth - 94 },
+      tableWidth: 80
+    });
+    
+    // Net Salary
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, 170, pageWidth - 28, 10, 'F');
+    doc.setFontSize(11);
+    doc.text("Net Salary:", 16, 177);
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text(`₹ ${payslip.net_salary.toFixed(2)}`, pageWidth - 16, 177, { align: "right" });
+    
+    // Footer
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.text("This is a computer-generated payslip and doesn't require a signature.", pageWidth / 2, pageHeight - 10, { align: "center" });
+    doc.text("Generated on: " + format(new Date(), "dd/MM/yyyy"), pageWidth / 2, pageHeight - 5, { align: "center" });
+    
+    // Save PDF
+    doc.save(`Payslip_${employee.name?.replace(/\s+/g, '_')}_${payslip.month}_${payslip.year}.pdf`);
   };
-
-  useEffect(() => {
-    console.log('Current employee:', employee);
-    console.log('Current bank info:', bankInfo);
-    console.log('Current salary info:', salaryInfo);
-    console.log('Current experiences:', experiences);
-  }, [employee, bankInfo, salaryInfo, experiences]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900"></div>
       </div>
     );
   }
@@ -282,308 +372,326 @@ const EmployeePerformance = () => {
 
   return (
     <div className="container mx-auto py-6">
-      <Tabs defaultValue="personal" className="w-full">
-        <TabsList className="grid grid-cols-5 gap-4 w-full">
-          <TabsTrigger value="personal">Personal Information</TabsTrigger>
-          <TabsTrigger value="bank">Bank Information</TabsTrigger>
-          <TabsTrigger value="experience">Professional Experience</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="salary">Salary Information</TabsTrigger>
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">{employee.name}</h1>
+          <p className="text-gray-600">{employee.designation}</p>
+        </div>
+        <Button variant="outline" onClick={() => navigate("/admin/reports")}>
+          Back to Reports
+        </Button>
+      </div>
+
+      <Tabs defaultValue="payslip" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+          <TabsTrigger value="payslip">Payslip Management</TabsTrigger>
+          <TabsTrigger value="payslipHistory">Payslip History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="personal">
+        <TabsContent value="payslip">
           <Card>
             <CardHeader>
-              <CardTitle>Personal Information</CardTitle>
+              <CardTitle className="text-xl flex items-center">
+                <FileText className="mr-2 h-5 w-5" />
+                Generate Payslip
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const data = Object.fromEntries(formData);
-                updatePersonalInfo(data);
-              }} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input id="name" name="name" defaultValue={employee.name || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" defaultValue={employee.email || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="date_of_birth">Date of Birth</Label>
-                    <Input id="date_of_birth" name="date_of_birth" type="date" defaultValue={employee.date_of_birth || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="fathers_name">Father's Name</Label>
-                    <Input id="fathers_name" name="fathers_name" defaultValue={employee.fathers_name || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="mothers_name">Mother's Name</Label>
-                    <Input id="mothers_name" name="mothers_name" defaultValue={employee.mothers_name || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Input id="address" name="address" defaultValue={employee.address || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="contact_number">Contact Number</Label>
-                    <Input id="contact_number" name="contact_number" defaultValue={employee.contact_number || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="emergency_contact">Emergency Contact</Label>
-                    <Input id="emergency_contact" name="emergency_contact" defaultValue={employee.emergency_contact || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="date_of_joining">Date of Joining</Label>
-                    <Input id="date_of_joining" name="date_of_joining" defaultValue={employee.date_of_joining || ''} />
-                  </div>
-                </div>
-                <Button type="submit">Update Personal Information</Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="bank">
-          <Card>
-            <CardHeader>
-              <CardTitle>Bank Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const data = Object.fromEntries(formData);
-                updateBankInfo(data);
-              }} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="bank_name">Bank Name</Label>
-                    <Input id="bank_name" name="bank_name" defaultValue={bankInfo?.bank_name || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="branch_name">Branch Name</Label>
-                    <Input id="branch_name" name="branch_name" defaultValue={bankInfo?.branch_name || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="account_number">Account Number</Label>
-                    <Input id="account_number" name="account_number" defaultValue={bankInfo?.account_number || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ifsc_code">IFSC Code</Label>
-                    <Input id="ifsc_code" name="ifsc_code" defaultValue={bankInfo?.ifsc_code || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="account_type">Account Type</Label>
-                    <Input id="account_type" name="account_type" defaultValue={bankInfo?.account_type || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bank_address">Bank Address</Label>
-                    <Input id="bank_address" name="bank_address" defaultValue={bankInfo?.bank_address || ''} />
-                  </div>
-                </div>
-                <Button type="submit">Update Bank Information</Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="experience">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Professional Experience</CardTitle>
-              <Button onClick={() => document.getElementById('add-experience-form')?.classList.toggle('hidden')}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Experience
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <form id="add-experience-form" onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const data = Object.fromEntries(formData);
-                addExperience(data);
-                e.currentTarget.reset();
-                e.currentTarget.classList.add('hidden');
-              }} className="space-y-4 hidden border-b pb-4 mb-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="company_name">Company Name</Label>
-                    <Input id="company_name" name="company_name" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="position">Position</Label>
-                    <Input id="position" name="position" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="start_date">Start Date</Label>
-                    <Input id="start_date" name="start_date" type="date" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="end_date">End Date</Label>
-                    <Input id="end_date" name="end_date" type="date" />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label htmlFor="responsibilities">Responsibilities</Label>
-                    <Input id="responsibilities" name="responsibilities" />
-                  </div>
-                </div>
-                <Button type="submit">Add Experience</Button>
-              </form>
-
-              <div className="space-y-4">
-                {experiences.map((exp) => (
-                  <Card key={exp.id} className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-semibold">{exp.company_name}</h3>
-                        <p className="text-sm text-gray-600">{exp.position}</p>
-                        <p className="text-sm">
-                          {new Date(exp.start_date).toLocaleDateString()} - 
-                          {exp.end_date ? new Date(exp.end_date).toLocaleDateString() : 'Present'}
-                        </p>
-                        {exp.responsibilities && (
-                          <p className="text-sm mt-2">{exp.responsibilities}</p>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleCreatePayslip)} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <FormField
+                        control={form.control}
+                        name="month"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Month</FormLabel>
+                            <Select 
+                              onValueChange={field.onChange} 
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select month" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {months.map((month) => (
+                                  <SelectItem key={month} value={month}>
+                                    {month}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
                         )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteExperience(exp.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      />
                     </div>
-                  </Card>
-                ))}
-              </div>
+                    <div className="space-y-2">
+                      <FormField
+                        control={form.control}
+                        name="year"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Year</FormLabel>
+                            <Select 
+                              onValueChange={field.onChange} 
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select year" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {years.map((year) => (
+                                  <SelectItem key={year} value={year}>
+                                    {year}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-6">
+                    <div>
+                      <h3 className="text-lg font-medium mb-2">Earnings</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="basic_salary"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Basic Salary</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="hra"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>HRA</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="da"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>DA</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="ta"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>TA</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="other_allowances"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Other Allowances</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-lg font-medium mb-2">Deductions</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="epf_deduction"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>EPF Deduction</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="other_deductions"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Other Deductions</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-medium">Net Salary:</h3>
+                        <p className="text-lg font-bold">₹ {netSalary.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button type="submit" className="w-full">Generate Payslip</Button>
+                </form>
+              </Form>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="documents">
+        <TabsContent value="payslipHistory">
           <Card>
             <CardHeader>
-              <CardTitle>Documents</CardTitle>
+              <CardTitle className="text-xl flex items-center">
+                <FileText className="mr-2 h-5 w-5" />
+                Payslip History
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const file = formData.get('file') as File;
-                const name = formData.get('name') as string;
-                const type = formData.get('type') as string;
-                if (file && name && type) {
-                  uploadDocument(file, name, type);
-                  e.currentTarget.reset();
-                }
-              }} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Document Name</Label>
-                    <Input id="name" name="name" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="type">Document Type</Label>
-                    <Input id="type" name="type" required />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label htmlFor="file">File</Label>
-                    <Input id="file" name="file" type="file" required />
-                  </div>
+              {payslips.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {payslips.map((payslip) => (
+                    <Card key={payslip.id} className="overflow-hidden">
+                      <CardHeader className="bg-gray-50 py-3">
+                        <CardTitle className="text-lg">{payslip.month} {payslip.year}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Basic Salary:</span>
+                            <span>₹ {payslip.basic_salary.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Total Earnings:</span>
+                            <span>₹ {(payslip.basic_salary + payslip.hra + payslip.da + payslip.ta + payslip.other_allowances).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Total Deductions:</span>
+                            <span>₹ {(payslip.epf_deduction + payslip.other_deductions).toFixed(2)}</span>
+                          </div>
+                          <div className="border-t pt-2 flex justify-between font-bold">
+                            <span>Net Salary:</span>
+                            <span>₹ {payslip.net_salary.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        <div className="mt-4 flex justify-between">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => generatePayslipPDF(payslip)}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              form.reset({
+                                month: payslip.month,
+                                year: payslip.year,
+                                basic_salary: payslip.basic_salary.toString(),
+                                hra: payslip.hra.toString(),
+                                da: payslip.da.toString(),
+                                ta: payslip.ta.toString(),
+                                other_allowances: payslip.other_allowances.toString(),
+                                epf_deduction: payslip.epf_deduction.toString(),
+                                other_deductions: payslip.other_deductions.toString(),
+                              });
+                              document.getElementById("payslip-tab")?.click();
+                            }}
+                          >
+                            Edit
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-                <Button type="submit">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Document
-                </Button>
-              </form>
-
-              <div className="mt-6 space-y-4">
-                {documents.map((doc: any) => (
-                  <Card key={doc.id} className="p-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-semibold">{doc.document_name}</h3>
-                        <p className="text-sm text-gray-600">{doc.document_type}</p>
-                      </div>
-                      <Button
-                        variant="secondary"
-                        onClick={async () => {
-                          const { data } = await supabase.storage
-                            .from('employee-documents')
-                            .getPublicUrl(doc.file_path);
-                          window.open(data.publicUrl, '_blank');
-                        }}
-                      >
-                        Download
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="salary">
-          <Card>
-            <CardHeader>
-              <CardTitle>Salary Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const data = Object.fromEntries(formData);
-                updateSalaryInfo(data);
-              }} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="gross_salary">Gross Salary</Label>
-                    <Input
-                      id="gross_salary"
-                      name="gross_salary"
-                      type="number"
-                      defaultValue={salaryInfo?.gross_salary || ''}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="epf_percentage">EPF Percentage</Label>
-                    <Input
-                      id="epf_percentage"
-                      name="epf_percentage"
-                      type="number"
-                      defaultValue={salaryInfo?.epf_percentage || ''}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="total_deduction">Total Deduction</Label>
-                    <Input
-                      id="total_deduction"
-                      name="total_deduction"
-                      type="number"
-                      defaultValue={salaryInfo?.total_deduction || ''}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="net_pay">Net Pay</Label>
-                    <Input
-                      id="net_pay"
-                      name="net_pay"
-                      type="number"
-                      defaultValue={salaryInfo?.net_pay || ''}
-                    />
-                  </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-gray-500">No payslips generated yet.</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-2"
+                    onClick={() => document.getElementById("payslip-tab")?.click()}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Generate Payslip
+                  </Button>
                 </div>
-                <Button type="submit">Update Salary Information</Button>
-              </form>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* Hidden button for programmatic tab switching */}
+      <button id="payslip-tab" className="hidden" onClick={() => document.querySelector('[value="payslip"]')?.dispatchEvent(new MouseEvent("click"))} />
     </div>
   );
 };

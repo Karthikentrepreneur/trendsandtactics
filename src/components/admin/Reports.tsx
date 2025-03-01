@@ -133,7 +133,7 @@ const Reports = () => {
                     <TableCell>{employee.designation}</TableCell>
                     <TableCell>{employee.email}</TableCell>
                     <TableCell className="text-right">
-                      <Button
+                      <Button 
                         size="sm"
                         onClick={() => handleViewEmployee(employee.id)}
                         className="flex items-center gap-1"
