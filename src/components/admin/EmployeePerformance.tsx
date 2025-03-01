@@ -172,18 +172,22 @@ const EmployeePerformance = () => {
 
   const fetchPayslips = async () => {
     if (!employeeId) return;
-    const { data, error } = await supabase
-      .from("payslips")
-      .select("*")
-      .eq("employee_id", employeeId)
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error("Error fetching payslips:", error);
-      return;
+    try {
+      const { data, error } = await supabase
+        .from("payslips")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching payslips:", error);
+        return;
+      }
+      
+      setPayslips(data || []);
+    } catch (error) {
+      console.error("Error in fetchPayslips:", error);
     }
-    
-    setPayslips(data || []);
   };
 
   const updateBankInfo = async (formData: any) => {
@@ -402,7 +406,7 @@ const EmployeePerformance = () => {
           employee_id: employeeId,
           created_at: new Date().toISOString()
         };
-        downloadPayslipPDF(payslip);
+        downloadPayslipPDF(payslip as PayslipRecord);
       }
     } catch (error) {
       console.error("Error generating payslip:", error);
@@ -555,10 +559,9 @@ const EmployeePerformance = () => {
   return (
     <div className="container mx-auto py-6">
       <Tabs defaultValue="payslip" className="w-full">
-        <TabsList className="grid grid-cols-4 gap-4 w-full">
+        <TabsList className="grid grid-cols-3 gap-4 w-full">
           <TabsTrigger value="payslip">Payslip</TabsTrigger>
           <TabsTrigger value="bank">Bank Information</TabsTrigger>
-          <TabsTrigger value="experience">Professional Experience</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
@@ -769,79 +772,6 @@ const EmployeePerformance = () => {
                 </div>
                 <Button type="submit">Update Bank Information</Button>
               </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="experience">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Professional Experience</CardTitle>
-              <Button onClick={() => document.getElementById('add-experience-form')?.classList.toggle('hidden')}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Experience
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <form id="add-experience-form" onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const data = Object.fromEntries(formData);
-                addExperience(data);
-                e.currentTarget.reset();
-                e.currentTarget.classList.add('hidden');
-              }} className="space-y-4 hidden border-b pb-4 mb-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="company_name">Company Name</Label>
-                    <Input id="company_name" name="company_name" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="position">Position</Label>
-                    <Input id="position" name="position" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="start_date">Start Date</Label>
-                    <Input id="start_date" name="start_date" type="date" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="end_date">End Date</Label>
-                    <Input id="end_date" name="end_date" type="date" />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label htmlFor="responsibilities">Responsibilities</Label>
-                    <Textarea id="responsibilities" name="responsibilities" />
-                  </div>
-                </div>
-                <Button type="submit">Add Experience</Button>
-              </form>
-
-              <div className="space-y-4">
-                {experiences.map((exp) => (
-                  <Card key={exp.id} className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-semibold">{exp.company_name}</h3>
-                        <p className="text-sm text-gray-600">{exp.position}</p>
-                        <p className="text-sm">
-                          {new Date(exp.start_date).toLocaleDateString()} - 
-                          {exp.end_date ? new Date(exp.end_date).toLocaleDateString() : 'Present'}
-                        </p>
-                        {exp.responsibilities && (
-                          <p className="text-sm mt-2">{exp.responsibilities}</p>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteExperience(exp.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
