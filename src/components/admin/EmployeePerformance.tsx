@@ -285,12 +285,12 @@ const EmployeePerformance = () => {
     
     const earningsTable = [
       ["Earnings", "Amount"],
-      ["Basic Salary", `₹ ${payslip.basic_salary.toFixed(2)}`],
-      ["HRA", `₹ ${payslip.hra.toFixed(2)}`],
-      ["DA", `₹ ${payslip.da.toFixed(2)}`],
-      ["TA", `₹ ${payslip.ta.toFixed(2)}`],
-      ["Other Allowances", `₹ ${payslip.other_allowances.toFixed(2)}`],
-      ["Total Earnings", `₹ ${(payslip.basic_salary + payslip.hra + payslip.da + payslip.ta + payslip.other_allowances).toFixed(2)}`]
+      ["Basic Salary", `₹ {payslip.basic_salary.toFixed(2)}`],
+      ["HRA", `₹ {payslip.hra.toFixed(2)}`],
+      ["DA", `₹ {payslip.da.toFixed(2)}`],
+      ["TA", `₹ {payslip.ta.toFixed(2)}`],
+      ["Other Allowances", `₹ {payslip.other_allowances.toFixed(2)}`],
+      ["Total Earnings", `₹ {(payslip.basic_salary + payslip.hra + payslip.da + payslip.ta + payslip.other_allowances).toFixed(2)}`]
     ];
     
     const deductionsTable = [
