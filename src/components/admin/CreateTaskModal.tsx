@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,8 @@ const CreateTaskModal = () => {
           .eq('role', 'employee');
         
         if (error) throw error;
-        setEmployees(data || []);
+        // Add type assertion to ensure the data matches the User interface
+        setEmployees(data as User[] || []);
       } catch (error) {
         console.error("Error fetching employees:", error);
         toast({

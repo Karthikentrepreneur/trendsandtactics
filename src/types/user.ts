@@ -14,7 +14,7 @@ export interface User {
   contact_number: string | null;
   emergency_contact: string | null;
   profile_photo: string | null;
-  department: string | null; // Added the department property
+  department: string | null; // Made the department property optional by marking it nullable
 }
 
 export interface UserFormData {
@@ -49,7 +49,6 @@ export interface PayslipFormValues {
   other_deductions: number;
 }
 
-// Add the SalaryInformation interface with updated_at property
 export interface SalaryInformation {
   id: string;
   employee_id: string;

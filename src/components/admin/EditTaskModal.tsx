@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,8 @@ const EditTaskModal = ({ task, open, onOpenChange, onTaskUpdated }: EditTaskModa
           .eq('role', 'employee');
         
         if (error) throw error;
-        setEmployees(data || []);
+        // Add type assertion to ensure the data matches the User interface
+        setEmployees(data as User[] || []);
       } catch (error) {
         console.error("Error fetching employees:", error);
         toast({

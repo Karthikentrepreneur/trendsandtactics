@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@/types/user";
-import { startOfMonth, endOfMonth, format } from "date-fns";
 
 const Payroll = () => {
   const [employees, setEmployees] = useState<User[]>([]);
@@ -23,7 +21,7 @@ const Payroll = () => {
           .order('name');
         
         if (data) {
-          setEmployees(data);
+          setEmployees(data as User[]);
         }
       } catch (error) {
         console.error('Error fetching employees:', error);

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,7 +77,7 @@ const EmployeePerformance = () => {
           .single();
 
         if (profileData) {
-          setEmployee(profileData);
+          setEmployee(profileData as User);
 
           // Parse selected month
           const [year, month] = selectedMonth.split('-');

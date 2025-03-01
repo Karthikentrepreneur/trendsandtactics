@@ -40,7 +40,7 @@ const Reports = () => {
         
         if (data) {
           console.log('Fetched profiles:', data);
-          setEmployees(data);
+          setEmployees(data as User[]);
         }
       } catch (error) {
         console.error('Error in reports page:', error);

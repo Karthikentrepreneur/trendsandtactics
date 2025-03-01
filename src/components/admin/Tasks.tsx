@@ -22,7 +22,7 @@ const Tasks = () => {
         .from('profiles')
         .select('*')
         .eq('role', 'employee');
-      setEmployees(data || []);
+      setEmployees(data as User[] || []);
     };
     fetchEmployees();
   }, []);
