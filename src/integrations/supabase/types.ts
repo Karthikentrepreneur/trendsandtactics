@@ -221,65 +221,6 @@ export type Database = {
           },
         ]
       }
-      payslips: {
-        Row: {
-          basic_salary: number
-          created_at: string | null
-          da: number
-          employee_id: string | null
-          epf_deduction: number
-          hra: number
-          id: string
-          month: string
-          net_salary: number
-          other_allowances: number
-          other_deductions: number
-          ta: number
-          updated_at: string | null
-          year: string
-        }
-        Insert: {
-          basic_salary?: number
-          created_at?: string | null
-          da?: number
-          employee_id?: string | null
-          epf_deduction?: number
-          hra?: number
-          id?: string
-          month: string
-          net_salary?: number
-          other_allowances?: number
-          other_deductions?: number
-          ta?: number
-          updated_at?: string | null
-          year: string
-        }
-        Update: {
-          basic_salary?: number
-          created_at?: string | null
-          da?: number
-          employee_id?: string | null
-          epf_deduction?: number
-          hra?: number
-          id?: string
-          month?: string
-          net_salary?: number
-          other_allowances?: number
-          other_deductions?: number
-          ta?: number
-          updated_at?: string | null
-          year?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payslips_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       professional_experience: {
         Row: {
           company_name: string

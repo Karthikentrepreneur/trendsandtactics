@@ -1,153 +1,162 @@
 
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription 
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Search, FileText, Calendar, Mail, Phone, UserRound } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@/types/user";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { FileText, Search, Users } from "lucide-react";
 
 const Reports = () => {
   const [employees, setEmployees] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setLoading(true);
+        console.log("Fetching all profiles...");
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('name');
+        
+        if (error) {
+          console.error('Error fetching profiles:', error);
+          throw error;
+        }
+        
+        if (data) {
+          console.log('Fetched profiles:', data);
+          setEmployees(data);
+        }
+      } catch (error) {
+        console.error('Error in reports page:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchEmployees();
   }, []);
 
-  const fetchEmployees = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("name");
-
-      if (error) throw error;
-      setEmployees(data || []);
-    } catch (error) {
-      console.error("Error fetching employees:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredEmployees = employees.filter(
-    (employee) =>
-      employee.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.designation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.employee_id?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredEmployees = employees.filter((employee) =>
+    employee.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.employee_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.designation?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleViewEmployee = (employeeId: string) => {
+    navigate(`/admin/employee-reports/${employeeId}`);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Employee Reports</h2>
-          <p className="text-muted-foreground">
-            View and generate reports for all employees
-          </p>
-        </div>
-        <div className="relative w-full md:w-64">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Performance Reports</h2>
+        <div className="relative w-full sm:w-auto">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            type="search"
             placeholder="Search employees..."
-            className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full sm:w-[300px] pl-8"
           />
         </div>
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="pb-2">
-                <div className="h-6 bg-muted rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-muted rounded w-1/2"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="h-4 bg-muted rounded w-full"></div>
-                  <div className="h-4 bg-muted rounded w-full"></div>
-                  <div className="h-4 bg-muted rounded w-3/4"></div>
-                </div>
-                <div className="h-9 bg-muted rounded w-full mt-4"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <>
-          {filteredEmployees.length === 0 ? (
-            <Card className="text-center p-6">
-              <CardContent>
-                <p className="text-muted-foreground py-4">No employees found matching your search criteria.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredEmployees.map((employee) => (
-                <Card key={employee.id}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2">
-                      {employee.name || "Unnamed Employee"}
-                      {employee.role && (
-                        <Badge variant="outline" className="ml-2">
-                          {employee.role}
-                        </Badge>
-                      )}
-                    </CardTitle>
-                    <CardDescription>{employee.designation || "No designation"}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center text-sm">
-                        <UserRound className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>ID: {employee.employee_id || "Not assigned"}</span>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-xl flex items-center">
+            <Users className="mr-2 h-5 w-5" />
+            Employee Reports
+          </CardTitle>
+          <span className="text-sm text-muted-foreground">
+            {filteredEmployees.length} employees
+          </span>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[calc(100vh-250px)] w-full">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Designation</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredEmployees.map((employee) => (
+                  <TableRow key={employee.id} className="hover:bg-muted/50">
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        {employee.profile_photo ? (
+                          <img
+                            src={employee.profile_photo}
+                            alt={employee.name || ''}
+                            className="h-8 w-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-sm font-medium text-gray-600">
+                              {employee.name?.charAt(0)}
+                            </span>
+                          </div>
+                        )}
+                        {employee.name}
                       </div>
-                      <div className="flex items-center text-sm">
-                        <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>{employee.email || "No email"}</span>
-                      </div>
-                      <div className="flex items-center text-sm">
-                        <Phone className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>{employee.contact_number || "No phone"}</span>
-                      </div>
-                      <div className="flex items-center text-sm">
-                        <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span>
-                          {employee.date_of_joining 
-                            ? new Date(employee.date_of_joining).toLocaleDateString() 
-                            : "Join date not set"}
-                        </span>
-                      </div>
-                    </div>
-                    <Link to={`/admin/payroll/${employee.id}`}>
-                      <Button className="w-full">
-                        <FileText className="mr-2 h-4 w-4" />
-                        View Report & Payslip
+                    </TableCell>
+                    <TableCell>{employee.employee_id}</TableCell>
+                    <TableCell>{employee.designation}</TableCell>
+                    <TableCell>{employee.email}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        onClick={() => handleViewEmployee(employee.id)}
+                        className="flex items-center gap-1"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        <span>View Report</span>
                       </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </>
-      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+
+                {filteredEmployees.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      No employees found
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   );
 };
