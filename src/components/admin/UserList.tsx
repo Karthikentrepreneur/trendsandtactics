@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { User } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +9,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import EditUserDialog from "./EditUserDialog";
+
+// Since EditUserDialog doesn't exist in the codebase yet, we'll create a placeholder interface
+interface EditUserDialogProps {
+  user: User;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUserUpdated: (updatedUser: User) => void;
+}
+
+// Create a placeholder EditUserDialog component
+const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: EditUserDialogProps) => {
+  return <div>Edit User Dialog Placeholder</div>;
+};
 
 interface UserListProps {
   users: User[];
@@ -21,19 +34,20 @@ const UserList = ({ users, onUserDeleted, loading }: UserListProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [editUser, setEditUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        setLoading(true);
+        setIsLoading(true);
         
         const { data, error } = await supabase
           .from('profiles')
           .select('*');
         
         if (error) throw error;
-        setAllUsers((data || []) as User[]);
+        setAllUsers((data || []) as unknown as User[]);
       } catch (error) {
         console.error('Error fetching users:', error);
         toast({
@@ -42,18 +56,18 @@ const UserList = ({ users, onUserDeleted, loading }: UserListProps) => {
           variant: "destructive",
         });
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
     
     fetchUsers();
-  }, []);
+  }, [toast]);
 
   const handleDeleteUser = async () => {
     if (!deleteUserId) return;
 
     try {
-      setLoading(true);
+      setIsLoading(true);
       
       // First delete the user from auth
       const { data: userData } = await supabase
@@ -92,12 +106,12 @@ const UserList = ({ users, onUserDeleted, loading }: UserListProps) => {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
       setDeleteUserId(null);
     }
   };
 
-  const handleUserUpdated = () => {
+  const handleUserUpdated = (updatedUser: User) => {
     onUserDeleted();
     toast({
       title: "Success",
@@ -128,7 +142,7 @@ const UserList = ({ users, onUserDeleted, loading }: UserListProps) => {
           <CardTitle>User List</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {isLoading || loading ? (
             <div className="flex justify-center p-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
             </div>
