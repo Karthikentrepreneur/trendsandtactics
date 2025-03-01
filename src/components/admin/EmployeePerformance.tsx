@@ -285,19 +285,19 @@ const EmployeePerformance = () => {
     
     const earningsTable = [
       ["Earnings", "Amount"],
-      ["Basic Salary(₹)", `${payslip.basic_salary.toFixed(2)}`],
-      ["HRA(₹)", `${payslip.hra.toFixed(2)}`],
-      ["DA(₹)", `${payslip.da.toFixed(2)}`],
-      ["TA(₹)", `${payslip.ta.toFixed(2)}`],
-      ["Other Allowances(₹)", `${payslip.other_allowances.toFixed(2)}`],
-      ["Total Earnings(₹)", `${(payslip.basic_salary + payslip.hra + payslip.da + payslip.ta + payslip.other_allowances).toFixed(2)}`]
+      ["Basic Salary", employee.gross_pay || }`],
+      ["HRA", `${payslip.hra.toFixed(2)}`],
+      ["DA", `${payslip.da.toFixed(2)}`],
+      ["TA", `${payslip.ta.toFixed(2)}`],
+      ["Other Allowances", `${payslip.other_allowances.toFixed(2)}`],
+      ["Total Earnings", `${(payslip.basic_salary + payslip.hra + payslip.da + payslip.ta + payslip.other_allowances).toFixed(2)}`]
     ];
     
     const deductionsTable = [
-      ["Deductions(₹)", "Amount"],
-      ["EPF(₹)", `${payslip.epf_deduction.toFixed(2)}`],
-      ["Other Deductions(₹)", `${payslip.other_deductions.toFixed(2)}`],
-      ["Total Deductions(₹)", ` ${(payslip.epf_deduction + payslip.other_deductions).toFixed(2)}`]
+      ["Deductions", "Amount"],
+      ["EPF", `${payslip.epf_deduction.toFixed(2)}`],
+      ["Other Deductions", `${payslip.other_deductions.toFixed(2)}`],
+      ["Total Deductions", ` ${(payslip.epf_deduction + payslip.other_deductions).toFixed(2)}`]
     ];
     
     autoTable(doc, {
