@@ -1,4 +1,4 @@
-<lov-code>
+
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -118,7 +118,7 @@ const EmployeePerformance = () => {
     absentDays: 0,
     leaveDays: 0
   });
-  const [navigate] = useNavigate();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   const months = [
@@ -972,3 +972,671 @@ const EmployeePerformance = () => {
                                   value={field.value.toString()}
                                 />
                               </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="other_deductions"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Other Deductions</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  placeholder="0.00"
+                                  {...field}
+                                  value={field.value.toString()}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 p-4 rounded">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-medium">Net Salary:</span>
+                        <span className="text-lg font-bold">₹ {netSalary.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end">
+                    <Button type="submit">
+                      Generate Payslip
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="payslipHistory">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <CalendarIcon className="mr-2 h-5 w-5" />
+                Payslip History
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {payslips.length === 0 ? (
+                <div className="text-center p-8">
+                  <p className="text-gray-500">No payslips generated yet.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {payslips.map((payslip) => (
+                    <Card key={payslip.id} className="overflow-hidden">
+                      <CardHeader className="bg-gray-50 py-3">
+                        <CardTitle className="text-lg flex justify-between items-center">
+                          <span>{payslip.month} {payslip.year}</span>
+                          <span className="text-base font-normal">₹ {payslip.net_salary.toFixed(2)}</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4">
+                        <div className="grid grid-cols-2 gap-2 mb-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Basic</p>
+                            <p className="font-medium">₹ {payslip.basic_salary.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">HRA</p>
+                            <p className="font-medium">₹ {payslip.hra.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">DA</p>
+                            <p className="font-medium">₹ {payslip.da.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">EPF</p>
+                            <p className="font-medium">₹ {payslip.epf_deduction.toFixed(2)}</p>
+                          </div>
+                        </div>
+                        <div className="flex justify-end space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => generatePayslipPDF(payslip)}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => generatePayslipPDF(payslip)}
+                          >
+                            <Printer className="h-4 w-4 mr-1" />
+                            Print
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="professionalData">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <BriefcaseIcon className="mr-2 h-5 w-5" />
+                Professional Experience
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  {professionalExperience.length === 0 ? (
+                    <div className="text-center p-8">
+                      <p className="text-gray-500">No professional experience data available.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {professionalExperience.map((exp) => (
+                        <Card key={exp.id}>
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h3 className="font-bold">{exp.company_name}</h3>
+                                <p className="text-gray-600">{exp.position}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm text-gray-500">
+                                  {format(new Date(exp.start_date), "MMM yyyy")} - 
+                                  {exp.end_date 
+                                    ? format(new Date(exp.end_date), " MMM yyyy") 
+                                    : " Present"}
+                                </p>
+                              </div>
+                            </div>
+                            {exp.responsibilities && (
+                              <div className="mt-2">
+                                <p className="text-sm">{exp.responsibilities}</p>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Add Experience</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="company_name">Company Name</Label>
+                          <Input 
+                            id="company_name" 
+                            value={newExperience.company_name}
+                            onChange={(e) => setNewExperience({...newExperience, company_name: e.target.value})}
+                            placeholder="Company name" 
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="position">Position</Label>
+                          <Input 
+                            id="position" 
+                            value={newExperience.position}
+                            onChange={(e) => setNewExperience({...newExperience, position: e.target.value})}
+                            placeholder="Job title" 
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="start_date">Start Date</Label>
+                          <Input 
+                            id="start_date" 
+                            type="date" 
+                            value={newExperience.start_date}
+                            onChange={(e) => setNewExperience({...newExperience, start_date: e.target.value})}
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="end_date">End Date (leave empty if current)</Label>
+                          <Input 
+                            id="end_date" 
+                            type="date" 
+                            value={newExperience.end_date}
+                            onChange={(e) => setNewExperience({...newExperience, end_date: e.target.value})}
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="responsibilities">Responsibilities</Label>
+                          <Textarea 
+                            id="responsibilities" 
+                            value={newExperience.responsibilities}
+                            onChange={(e) => setNewExperience({...newExperience, responsibilities: e.target.value})}
+                            placeholder="Job responsibilities and achievements" 
+                            rows={3}
+                          />
+                        </div>
+                        
+                        <Button 
+                          className="w-full"
+                          onClick={handleAddExperience}
+                          disabled={!newExperience.company_name || !newExperience.position || !newExperience.start_date}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add Experience
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="documents">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <FileText className="mr-2 h-5 w-5" />
+                Employee Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  {documents.length === 0 ? (
+                    <div className="text-center p-8">
+                      <p className="text-gray-500">No documents uploaded yet.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {documents.map((doc) => (
+                        <Card key={doc.id}>
+                          <CardContent className="p-4 flex justify-between items-center">
+                            <div>
+                              <h3 className="font-bold">{doc.document_name}</h3>
+                              <p className="text-gray-600 text-sm">{doc.document_type}</p>
+                              <p className="text-gray-500 text-xs">
+                                {format(new Date(doc.uploaded_at), "MMM dd, yyyy")}
+                              </p>
+                            </div>
+                            <div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(doc.file_path, '_blank')}
+                              >
+                                <Download className="h-4 w-4 mr-1" />
+                                Download
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Upload Document</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="document_type">Document Type</Label>
+                          <Select 
+                            value={documentType}
+                            onValueChange={setDocumentType}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select document type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {documentTypes.map((type) => (
+                                <SelectItem key={type} value={type}>
+                                  {type}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="document_name">Document Name</Label>
+                          <Input 
+                            id="document_name" 
+                            value={documentName}
+                            onChange={(e) => setDocumentName(e.target.value)}
+                            placeholder="Document name" 
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="document_file">File</Label>
+                          <Input 
+                            id="document_file" 
+                            type="file" 
+                            onChange={handleFileChange}
+                          />
+                        </div>
+                        
+                        <Button 
+                          className="w-full"
+                          onClick={handleUploadDocument}
+                          disabled={uploadingDocument || !selectedFile || !documentType || !documentName}
+                        >
+                          {uploadingDocument ? (
+                            <div className="flex items-center">
+                              <div className="h-4 w-4 animate-spin mr-2 border-2 border-gray-300 border-t-white rounded-full"></div>
+                              Uploading...
+                            </div>
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4 mr-1" />
+                              Upload Document
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="salaryInfo">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <CreditCard className="mr-2 h-5 w-5" />
+                Salary Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Current Salary</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {salaryInfo ? (
+                      <div className="space-y-4">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Gross Salary:</span>
+                          <span className="font-semibold">₹ {salaryInfo.gross_salary.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">EPF Percentage:</span>
+                          <span className="font-semibold">{salaryInfo.epf_percentage}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Total Deduction:</span>
+                          <span className="font-semibold">₹ {salaryInfo.total_deduction.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Net Pay:</span>
+                          <span className="font-semibold">₹ {salaryInfo.net_pay.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>Last Updated:</span>
+                          <span>{salaryInfo.updated_at ? format(new Date(salaryInfo.updated_at), "dd/MM/yyyy") : 'Never'}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center p-4">
+                        <p className="text-gray-500">No salary information available.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Update Salary</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="gross_salary">Gross Salary</Label>
+                        <Input 
+                          id="gross_salary" 
+                          type="number" 
+                          placeholder="0.00"
+                          defaultValue={salaryInfo?.gross_salary || 0}
+                          onChange={(e) => {
+                            const newSalaryInfo = {...(salaryInfo || {
+                              id: '',
+                              employee_id: employeeId || '',
+                              gross_salary: 0,
+                              epf_percentage: 0,
+                              total_deduction: 0,
+                              net_pay: 0,
+                              created_at: new Date().toISOString(),
+                              updated_at: null
+                            })};
+                            newSalaryInfo.gross_salary = parseFloat(e.target.value) || 0;
+                            setSalaryInfo(newSalaryInfo as SalaryInformation);
+                          }}
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="epf_percentage">EPF Percentage</Label>
+                        <Input 
+                          id="epf_percentage" 
+                          type="number" 
+                          placeholder="0"
+                          defaultValue={salaryInfo?.epf_percentage || 0}
+                          onChange={(e) => {
+                            const newSalaryInfo = {...(salaryInfo || {
+                              id: '',
+                              employee_id: employeeId || '',
+                              gross_salary: 0,
+                              epf_percentage: 0,
+                              total_deduction: 0,
+                              net_pay: 0,
+                              created_at: new Date().toISOString(),
+                              updated_at: null
+                            })};
+                            newSalaryInfo.epf_percentage = parseFloat(e.target.value) || 0;
+                            setSalaryInfo(newSalaryInfo as SalaryInformation);
+                          }}
+                        />
+                      </div>
+                      
+                      <Button 
+                        className="w-full"
+                        onClick={() => salaryInfo && handleUpdateSalaryInfo(salaryInfo)}
+                      >
+                        Update Salary Information
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="profileInfo">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <UserIcon className="mr-2 h-5 w-5" />
+                Profile Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Personal Details</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="profile_name">Full Name</Label>
+                      <Input 
+                        id="profile_name" 
+                        value={employee.name || ''}
+                        onChange={(e) => handleUpdateProfile({ name: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_email">Email Address</Label>
+                      <Input 
+                        id="profile_email" 
+                        value={employee.email || ''}
+                        readOnly
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_dob">Date of Birth</Label>
+                      <Input 
+                        id="profile_dob" 
+                        type="date"
+                        value={employee.date_of_birth || ''}
+                        onChange={(e) => handleUpdateProfile({ date_of_birth: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_address">Address</Label>
+                      <Textarea 
+                        id="profile_address" 
+                        value={employee.address || ''}
+                        onChange={(e) => handleUpdateProfile({ address: e.target.value })}
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_contact">Contact Number</Label>
+                      <Input 
+                        id="profile_contact" 
+                        value={employee.contact_number || ''}
+                        onChange={(e) => handleUpdateProfile({ contact_number: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_emergency">Emergency Contact</Label>
+                      <Input 
+                        id="profile_emergency" 
+                        value={employee.emergency_contact || ''}
+                        onChange={(e) => handleUpdateProfile({ emergency_contact: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Employment Details</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="profile_employeeId">Employee ID</Label>
+                      <Input 
+                        id="profile_employeeId" 
+                        value={employee.employee_id || ''}
+                        readOnly
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_designation">Designation</Label>
+                      <Input 
+                        id="profile_designation" 
+                        value={employee.designation || ''}
+                        onChange={(e) => handleUpdateProfile({ designation: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_department">Department</Label>
+                      <Select 
+                        value={employee.department || ''}
+                        onValueChange={(value) => handleUpdateProfile({ department: value })}
+                      >
+                        <SelectTrigger id="profile_department">
+                          <SelectValue placeholder="Select department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {departments.map((dept) => (
+                            <SelectItem key={dept} value={dept}>
+                              {dept}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_doj">Date of Joining</Label>
+                      <Input 
+                        id="profile_doj" 
+                        type="date"
+                        value={employee.date_of_joining || ''}
+                        onChange={(e) => handleUpdateProfile({ date_of_joining: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_fathersName">Father's Name</Label>
+                      <Input 
+                        id="profile_fathersName" 
+                        value={employee.fathers_name || ''}
+                        onChange={(e) => handleUpdateProfile({ fathers_name: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="profile_mothersName">Mother's Name</Label>
+                      <Input 
+                        id="profile_mothersName" 
+                        value={employee.mothers_name || ''}
+                        onChange={(e) => handleUpdateProfile({ mothers_name: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="attendanceReport">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <Building className="mr-2 h-5 w-5" />
+                Attendance Report
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <Card className="bg-green-50">
+                  <CardContent className="p-4 flex items-center">
+                    <CheckCircle2 className="h-10 w-10 mr-4 text-green-500" />
+                    <div>
+                      <p className="text-gray-600 text-sm">Present Days</p>
+                      <p className="text-2xl font-bold">{attendanceData.presentDays}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-red-50">
+                  <CardContent className="p-4 flex items-center">
+                    <XCircle className="h-10 w-10 mr-4 text-red-500" />
+                    <div>
+                      <p className="text-gray-600 text-sm">Absent Days</p>
+                      <p className="text-2xl font-bold">{attendanceData.absentDays}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-blue-50">
+                  <CardContent className="p-4 flex items-center">
+                    <CalendarDays className="h-10 w-10 mr-4 text-blue-500" />
+                    <div>
+                      <p className="text-gray-600 text-sm">Leave Days</p>
+                      <p className="text-2xl font-bold">{attendanceData.leaveDays}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Attendance Details</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center p-4">
+                    {/* This component would display detailed attendance logs */}
+                    <p className="text-gray-500">Detailed attendance logs will be displayed here.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default EmployeePerformance;
