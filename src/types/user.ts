@@ -14,6 +14,7 @@ export interface User {
   contact_number: string | null;
   emergency_contact: string | null;
   profile_photo: string | null;
+  department: string | null; // Added the department property
 }
 
 export interface UserFormData {
@@ -46,4 +47,16 @@ export interface PayslipFormValues {
   other_allowances: number;
   epf_deduction: number;
   other_deductions: number;
+}
+
+// Add the SalaryInformation interface with updated_at property
+export interface SalaryInformation {
+  id: string;
+  employee_id: string;
+  gross_salary: number;
+  epf_percentage: number;
+  total_deduction: number;
+  net_pay: number;
+  created_at: string;
+  updated_at: string | null;
 }
