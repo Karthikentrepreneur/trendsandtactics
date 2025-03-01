@@ -42,7 +42,7 @@ interface Payslip {
   created_at: string;
 }
 
-// Form schema - updated to correctly handle number type conversion
+// Form schema - updated to correctly handle number type conversion and make all fields required
 const payslipFormSchema = z.object({
   month: z.string().min(1, "Month is required"),
   year: z.string().min(1, "Year is required"),
@@ -95,15 +95,15 @@ const EmployeePerformance = () => {
     const { basic_salary, hra, da, ta, other_allowances, epf_deduction, other_deductions } = watchAllFields;
     
     const totalEarnings = 
-      (basic_salary || 0) + 
-      (hra || 0) + 
-      (da || 0) + 
-      (ta || 0) + 
-      (other_allowances || 0);
+      Number(basic_salary || 0) + 
+      Number(hra || 0) + 
+      Number(da || 0) + 
+      Number(ta || 0) + 
+      Number(other_allowances || 0);
     
     const totalDeductions = 
-      (epf_deduction || 0) + 
-      (other_deductions || 0);
+      Number(epf_deduction || 0) + 
+      Number(other_deductions || 0);
     
     setNetSalary(totalEarnings - totalDeductions);
   }, [watchAllFields]);
