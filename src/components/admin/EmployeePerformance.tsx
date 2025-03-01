@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -25,7 +24,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 
-// Define types
 interface Payslip {
   id: string;
   employee_id: string;
@@ -42,7 +40,6 @@ interface Payslip {
   created_at: string;
 }
 
-// Form schema - updated to correctly handle number type conversion and make all fields required
 const payslipFormSchema = z.object({
   month: z.string().min(1, "Month is required"),
   year: z.string().min(1, "Year is required"),
@@ -54,6 +51,8 @@ const payslipFormSchema = z.object({
   epf_deduction: z.string().transform(val => Number(val || 0)),
   other_deductions: z.string().transform(val => Number(val || 0)),
 });
+
+type PayslipSchemaType = z.infer<typeof payslipFormSchema>;
 
 const EmployeePerformance = () => {
   const { employeeId } = useParams();
@@ -72,7 +71,6 @@ const EmployeePerformance = () => {
   
   const years = Array.from({ length: 11 }, (_, i) => (currentDate.getFullYear() - 5 + i).toString());
 
-  // Setup form
   const form = useForm<PayslipFormValues>({
     resolver: zodResolver(payslipFormSchema),
     defaultValues: {
@@ -88,7 +86,6 @@ const EmployeePerformance = () => {
     },
   });
 
-  // Watch form values to calculate net salary
   const watchAllFields = form.watch();
   
   useEffect(() => {
@@ -166,7 +163,6 @@ const EmployeePerformance = () => {
     try {
       if (!employeeId || !employee) return;
 
-      // Check if payslip for this month and year already exists
       const { data: existingPayslip } = await supabase
         .from("payslips")
         .select("*")
@@ -175,7 +171,6 @@ const EmployeePerformance = () => {
         .eq("year", values.year)
         .maybeSingle();
 
-      // Calculate net salary
       const totalEarnings = 
         values.basic_salary + 
         values.hra + 
@@ -192,7 +187,6 @@ const EmployeePerformance = () => {
       let result;
       
       if (existingPayslip) {
-        // Update existing payslip
         result = await supabase
           .from("payslips")
           .update({
@@ -213,7 +207,6 @@ const EmployeePerformance = () => {
           description: "Payslip updated successfully",
         });
       } else {
-        // Create new payslip
         result = await supabase
           .from("payslips")
           .insert({
@@ -238,7 +231,6 @@ const EmployeePerformance = () => {
       
       if (result.error) throw result.error;
       
-      // Refresh payslips list
       await fetchPayslips();
       
     } catch (error) {
@@ -258,7 +250,6 @@ const EmployeePerformance = () => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     
-    // Add company logo and header
     doc.setFillColor(52, 101, 164);
     doc.rect(0, 0, pageWidth, 30, 'F');
     doc.setTextColor(255, 255, 255);
@@ -267,7 +258,6 @@ const EmployeePerformance = () => {
     doc.setFontSize(14);
     doc.text("Payslip for " + payslip.month + " " + payslip.year, pageWidth / 2, 25, { align: "center" });
     
-    // Employee information
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(12);
     doc.text("Employee Details", 14, 40);
@@ -289,7 +279,6 @@ const EmployeePerformance = () => {
       columnStyles: { 0: { cellWidth: 40 } }
     });
     
-    // Salary details
     doc.text("Salary Details", 14, 90);
     
     const earningsTable = [
@@ -309,7 +298,6 @@ const EmployeePerformance = () => {
       ["Total Deductions", `₹ ${(payslip.epf_deduction + payslip.other_deductions).toFixed(2)}`]
     ];
     
-    // Earnings table
     autoTable(doc, {
       startY: 95,
       head: [["Earnings", "Amount"]],
@@ -321,7 +309,6 @@ const EmployeePerformance = () => {
       tableWidth: 80
     });
     
-    // Deductions table
     autoTable(doc, {
       startY: 95,
       head: [["Deductions", "Amount"]],
@@ -333,7 +320,6 @@ const EmployeePerformance = () => {
       tableWidth: 80
     });
     
-    // Net Salary
     doc.setFillColor(240, 240, 240);
     doc.rect(14, 170, pageWidth - 28, 10, 'F');
     doc.setFontSize(11);
@@ -342,13 +328,11 @@ const EmployeePerformance = () => {
     doc.setFont(undefined, 'bold');
     doc.text(`₹ ${payslip.net_salary.toFixed(2)}`, pageWidth - 16, 177, { align: "right" });
     
-    // Footer
     doc.setFontSize(8);
     doc.setFont(undefined, 'normal');
     doc.text("This is a computer-generated payslip and doesn't require a signature.", pageWidth / 2, pageHeight - 10, { align: "center" });
     doc.text("Generated on: " + format(new Date(), "dd/MM/yyyy"), pageWidth / 2, pageHeight - 5, { align: "center" });
     
-    // Save PDF
     doc.save(`Payslip_${employee.name?.replace(/\s+/g, '_')}_${payslip.month}_${payslip.year}.pdf`);
   };
 
@@ -695,7 +679,6 @@ const EmployeePerformance = () => {
         </TabsContent>
       </Tabs>
       
-      {/* Hidden button for programmatic tab switching */}
       <button id="payslip-tab" className="hidden" onClick={() => document.querySelector('[value="payslip"]')?.dispatchEvent(new MouseEvent("click"))} />
     </div>
   );
