@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
-import type { User } from "@/types/user";
+import type { User, PayslipFormValues } from "@/types/user";
 import { Textarea } from "@/components/ui/textarea";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -46,16 +46,14 @@ interface Payslip {
 const payslipFormSchema = z.object({
   month: z.string().min(1, "Month is required"),
   year: z.string().min(1, "Year is required"),
-  basic_salary: z.string().transform(val => Number(val)),
-  hra: z.string().transform(val => Number(val)),
-  da: z.string().transform(val => Number(val)),
-  ta: z.string().transform(val => Number(val)),
-  other_allowances: z.string().transform(val => Number(val)),
-  epf_deduction: z.string().transform(val => Number(val)),
-  other_deductions: z.string().transform(val => Number(val)),
+  basic_salary: z.string().transform(val => Number(val || 0)),
+  hra: z.string().transform(val => Number(val || 0)),
+  da: z.string().transform(val => Number(val || 0)),
+  ta: z.string().transform(val => Number(val || 0)),
+  other_allowances: z.string().transform(val => Number(val || 0)),
+  epf_deduction: z.string().transform(val => Number(val || 0)),
+  other_deductions: z.string().transform(val => Number(val || 0)),
 });
-
-type PayslipFormValues = z.infer<typeof payslipFormSchema>;
 
 const EmployeePerformance = () => {
   const { employeeId } = useParams();
@@ -80,13 +78,13 @@ const EmployeePerformance = () => {
     defaultValues: {
       month: months[currentDate.getMonth()],
       year: currentDate.getFullYear().toString(),
-      basic_salary: "0",
-      hra: "0",
-      da: "0",
-      ta: "0",
-      other_allowances: "0",
-      epf_deduction: "0",
-      other_deductions: "0",
+      basic_salary: 0,
+      hra: 0,
+      da: 0,
+      ta: 0,
+      other_allowances: 0,
+      epf_deduction: 0,
+      other_deductions: 0,
     },
   });
 
@@ -97,15 +95,15 @@ const EmployeePerformance = () => {
     const { basic_salary, hra, da, ta, other_allowances, epf_deduction, other_deductions } = watchAllFields;
     
     const totalEarnings = 
-      Number(basic_salary || "0") + 
-      Number(hra || "0") + 
-      Number(da || "0") + 
-      Number(ta || "0") + 
-      Number(other_allowances || "0");
+      (basic_salary || 0) + 
+      (hra || 0) + 
+      (da || 0) + 
+      (ta || 0) + 
+      (other_allowances || 0);
     
     const totalDeductions = 
-      Number(epf_deduction || "0") + 
-      Number(other_deductions || "0");
+      (epf_deduction || 0) + 
+      (other_deductions || 0);
     
     setNetSalary(totalEarnings - totalDeductions);
   }, [watchAllFields]);
@@ -473,6 +471,7 @@ const EmployeePerformance = () => {
                                   type="number"
                                   placeholder="0.00"
                                   {...field}
+                                  value={field.value.toString()}
                                 />
                               </FormControl>
                             </FormItem>
@@ -490,6 +489,7 @@ const EmployeePerformance = () => {
                                   type="number"
                                   placeholder="0.00"
                                   {...field}
+                                  value={field.value.toString()}
                                 />
                               </FormControl>
                             </FormItem>
@@ -507,6 +507,7 @@ const EmployeePerformance = () => {
                                   type="number"
                                   placeholder="0.00"
                                   {...field}
+                                  value={field.value.toString()}
                                 />
                               </FormControl>
                             </FormItem>
@@ -524,6 +525,7 @@ const EmployeePerformance = () => {
                                   type="number"
                                   placeholder="0.00"
                                   {...field}
+                                  value={field.value.toString()}
                                 />
                               </FormControl>
                             </FormItem>
@@ -541,6 +543,7 @@ const EmployeePerformance = () => {
                                   type="number"
                                   placeholder="0.00"
                                   {...field}
+                                  value={field.value.toString()}
                                 />
                               </FormControl>
                             </FormItem>
@@ -563,6 +566,7 @@ const EmployeePerformance = () => {
                                   type="number"
                                   placeholder="0.00"
                                   {...field}
+                                  value={field.value.toString()}
                                 />
                               </FormControl>
                             </FormItem>
@@ -580,6 +584,7 @@ const EmployeePerformance = () => {
                                   type="number"
                                   placeholder="0.00"
                                   {...field}
+                                  value={field.value.toString()}
                                 />
                               </FormControl>
                             </FormItem>
@@ -654,13 +659,13 @@ const EmployeePerformance = () => {
                               form.reset({
                                 month: payslip.month,
                                 year: payslip.year,
-                                basic_salary: payslip.basic_salary.toString(),
-                                hra: payslip.hra.toString(),
-                                da: payslip.da.toString(),
-                                ta: payslip.ta.toString(),
-                                other_allowances: payslip.other_allowances.toString(),
-                                epf_deduction: payslip.epf_deduction.toString(),
-                                other_deductions: payslip.other_deductions.toString(),
+                                basic_salary: payslip.basic_salary,
+                                hra: payslip.hra,
+                                da: payslip.da,
+                                ta: payslip.ta,
+                                other_allowances: payslip.other_allowances,
+                                epf_deduction: payslip.epf_deduction,
+                                other_deductions: payslip.other_deductions,
                               });
                               document.getElementById("payslip-tab")?.click();
                             }}

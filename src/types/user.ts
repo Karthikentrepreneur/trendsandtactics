@@ -35,3 +35,15 @@ export interface Task {
   assigned_to: string | null;
   assigned_by: string | null;
 }
+
+export interface PayslipFormValues {
+  month: string;
+  year: string;
+  basic_salary: number;
+  hra: number;
+  da: number;
+  ta: number;
+  other_allowances: number;
+  epf_deduction: number;
+  other_deductions: number;
+}

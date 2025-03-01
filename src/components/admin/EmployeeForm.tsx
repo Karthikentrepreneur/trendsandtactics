@@ -32,7 +32,7 @@ const employeeSchema = z.object({
   employeeId: z.string().min(1, "Employee ID is required"),
   designation: z.string().min(1, "Designation is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(["admin", "employee", "manager"]).default("employee"),
+  role: z.enum(["admin", "employee", "manager"]),
 });
 
 interface EmployeeFormProps {
