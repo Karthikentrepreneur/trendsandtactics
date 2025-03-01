@@ -69,7 +69,6 @@ const EmployeePerformance = () => {
   useEffect(() => {
     const fetchEmployeeData = async () => {
       try {
-        // Fetch employee profile
         const { data: profileData } = await supabase
           .from('profiles')
           .select('*')
@@ -79,14 +78,12 @@ const EmployeePerformance = () => {
         if (profileData) {
           setEmployee(profileData as User);
 
-          // Parse selected month
           const [year, month] = selectedMonth.split('-');
           const selectedDate = new Date(parseInt(year), parseInt(month) - 1);
           const startDate = startOfMonth(selectedDate);
           const endDate = endOfMonth(selectedDate);
           const today = new Date();
 
-          // Fetch attendance logs
           const logs = await attendanceService.getAttendanceLogs();
           const monthLogs = logs.filter(log => {
             const logDate = new Date(log.date);
@@ -94,21 +91,16 @@ const EmployeePerformance = () => {
                    log.email?.toLowerCase() === profileData.email?.toLowerCase();
           });
 
-          // Calculate attendance analytics
           const presentDays = monthLogs.filter(log => log.effectiveHours > 0).length;
           
-          // Calculate days to consider for absence (up to today or end of month)
           const daysInMonth = getDaysInMonth(selectedDate);
           const lastDayToConsider = isAfter(endDate, today) ? today.getDate() : daysInMonth;
           
-          // Calculate Sundays up to the last day to consider
           const sundaysCount = calculateSundaysInMonth(parseInt(year), parseInt(month), lastDayToConsider);
-          const casualLeaveAllowance = 1; // One casual leave per month
-          
-          // Calculate absent days only up to today or end of month
+          const casualLeaveAllowance = 1;
+
           const absentDays = Math.max(0, lastDayToConsider - presentDays - sundaysCount - casualLeaveAllowance);
 
-          // Fetch month's tasks
           const { data: tasksData } = await supabase
             .from('tasks')
             .select('*')
@@ -119,7 +111,6 @@ const EmployeePerformance = () => {
 
           if (tasksData) {
             setTasks(tasksData);
-            // Calculate task analytics
             const completedTasks = tasksData.filter(task => task.status === 'completed').length;
             const pendingTasks = tasksData.filter(task => task.status !== 'completed').length;
 
@@ -157,7 +148,6 @@ const EmployeePerformance = () => {
           return;
         }
         
-        // Now this should work because we've updated the LeaveRequest interface
         setLeaveRequests(data || []);
       }
     };
@@ -188,24 +178,20 @@ const EmployeePerformance = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
 
-    // Add title
     doc.setFontSize(16);
     doc.text(`Performance Report - ${employee.name}`, pageWidth / 2, 15, { align: 'center' });
     doc.setFontSize(12);
     doc.text(`Month: ${format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy')}`, pageWidth / 2, 25, { align: 'center' });
 
-    // Add employee details
     doc.text(`Employee ID: ${employee.employee_id}`, 20, 35);
     doc.text(`Designation: ${employee.designation}`, 20, 42);
 
-    // Add performance summary
     doc.text('Performance Summary:', 20, 55);
     doc.text(`Present Days: ${analytics.presentDays}`, 30, 62);
     doc.text(`Absent Days: ${analytics.absentDays}`, 30, 69);
     doc.text(`Completed Tasks: ${analytics.completedTasks}`, 30, 76);
     doc.text(`Pending Tasks: ${analytics.pendingTasks}`, 30, 83);
 
-    // Fetch attendance logs for the selected month
     attendanceService.getAttendanceLogs().then((logs) => {
       const [year, month] = selectedMonth.split('-');
       const selectedDate = new Date(parseInt(year), parseInt(month) - 1);
@@ -219,7 +205,6 @@ const EmployeePerformance = () => {
                log.email?.toLowerCase() === employee.email?.toLowerCase();
       });
 
-      // Add attendance table
       doc.text('Attendance Records:', 20, 100);
       const attendanceData = monthLogs.map(log => [
         format(new Date(log.date), 'MMM dd, yyyy'),
@@ -235,7 +220,6 @@ const EmployeePerformance = () => {
         body: attendanceData,
       });
 
-      // Add tasks table
       doc.addPage();
       doc.text('Tasks Overview:', 20, 20);
       const tasksData = tasks.map(task => [
@@ -251,7 +235,6 @@ const EmployeePerformance = () => {
         body: tasksData,
       });
 
-      // Save the PDF
       const fileName = `${employee.name}_performance_report_${selectedMonth}.pdf`;
       doc.save(fileName);
       toast.success("Report downloaded successfully");

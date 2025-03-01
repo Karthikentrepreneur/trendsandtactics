@@ -45,8 +45,8 @@ const EditTaskModal = ({ task, open, onOpenChange, onTaskUpdated }: EditTaskModa
           .eq('role', 'employee');
         
         if (error) throw error;
-        // Add type assertion to ensure the data matches the User interface
-        setEmployees(data as User[] || []);
+        // Add proper type assertion here
+        setEmployees((data || []) as User[]);
       } catch (error) {
         console.error("Error fetching employees:", error);
         toast({

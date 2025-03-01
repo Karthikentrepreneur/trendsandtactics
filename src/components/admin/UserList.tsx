@@ -10,9 +10,14 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import EditUserDialog from "./EditUserDialog";
 
-const UserList = () => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+interface UserListProps {
+  users: User[];
+  onUserDeleted: () => void;
+  loading: boolean;
+}
+
+const UserList = ({ users, onUserDeleted, loading }: UserListProps) => {
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [editUser, setEditUser] = useState<User | null>(null);
@@ -21,15 +26,16 @@ const UserList = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
+        setLoading(true);
+        
         const { data, error } = await supabase
           .from('profiles')
-          .select('*')
-          .order('name');
+          .select('*');
         
         if (error) throw error;
-        setUsers(data as User[] || []);
+        setAllUsers((data || []) as User[]);
       } catch (error) {
-        console.error("Error fetching users:", error);
+        console.error('Error fetching users:', error);
         toast({
           title: "Error",
           description: "Failed to fetch users",
@@ -41,7 +47,7 @@ const UserList = () => {
     };
     
     fetchUsers();
-  }, [toast]);
+  }, []);
 
   const handleDeleteUser = async () => {
     if (!deleteUserId) return;
@@ -72,7 +78,7 @@ const UserList = () => {
       if (profileError) throw profileError;
 
       // Update local state
-      setUsers(users.filter(user => user.id !== deleteUserId));
+      setAllUsers(allUsers.filter(user => user.id !== deleteUserId));
       
       toast({
         title: "Success",
@@ -91,16 +97,15 @@ const UserList = () => {
     }
   };
 
-  const handleUserUpdated = (updatedUser: User) => {
-    setUsers(users.map(user => user.id === updatedUser.id ? updatedUser : user));
-    setEditUser(null);
+  const handleUserUpdated = () => {
+    onUserDeleted();
     toast({
       title: "Success",
       description: "User updated successfully",
     });
   };
 
-  const filteredUsers = users.filter(user => 
+  const filteredUsers = allUsers.filter(user => 
     user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.role?.toLowerCase().includes(searchTerm.toLowerCase()) ||

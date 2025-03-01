@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   name: string | null;
@@ -14,7 +13,7 @@ export interface User {
   contact_number: string | null;
   emergency_contact: string | null;
   profile_photo: string | null;
-  department: string | null; // Keep as nullable
+  department?: string | null; // Make department optional
 }
 
 export interface UserFormData {
