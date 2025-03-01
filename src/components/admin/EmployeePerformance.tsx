@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -42,17 +41,17 @@ interface Payslip {
   created_at: string;
 }
 
-// Form schema
+// Form schema - updated to correctly handle number type conversion
 const payslipFormSchema = z.object({
   month: z.string().min(1, "Month is required"),
   year: z.string().min(1, "Year is required"),
-  basic_salary: z.string().transform(val => parseFloat(val)),
-  hra: z.string().transform(val => parseFloat(val)),
-  da: z.string().transform(val => parseFloat(val)),
-  ta: z.string().transform(val => parseFloat(val)),
-  other_allowances: z.string().transform(val => parseFloat(val)),
-  epf_deduction: z.string().transform(val => parseFloat(val)),
-  other_deductions: z.string().transform(val => parseFloat(val)),
+  basic_salary: z.string().transform(val => Number(val)),
+  hra: z.string().transform(val => Number(val)),
+  da: z.string().transform(val => Number(val)),
+  ta: z.string().transform(val => Number(val)),
+  other_allowances: z.string().transform(val => Number(val)),
+  epf_deduction: z.string().transform(val => Number(val)),
+  other_deductions: z.string().transform(val => Number(val)),
 });
 
 type PayslipFormValues = z.infer<typeof payslipFormSchema>;
@@ -97,15 +96,15 @@ const EmployeePerformance = () => {
     const { basic_salary, hra, da, ta, other_allowances, epf_deduction, other_deductions } = watchAllFields;
     
     const totalEarnings = 
-      parseFloat(basic_salary || "0") + 
-      parseFloat(hra || "0") + 
-      parseFloat(da || "0") + 
-      parseFloat(ta || "0") + 
-      parseFloat(other_allowances || "0");
+      Number(basic_salary || "0") + 
+      Number(hra || "0") + 
+      Number(da || "0") + 
+      Number(ta || "0") + 
+      Number(other_allowances || "0");
     
     const totalDeductions = 
-      parseFloat(epf_deduction || "0") + 
-      parseFloat(other_deductions || "0");
+      Number(epf_deduction || "0") + 
+      Number(other_deductions || "0");
     
     setNetSalary(totalEarnings - totalDeductions);
   }, [watchAllFields]);
