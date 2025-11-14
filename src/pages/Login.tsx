@@ -34,25 +34,27 @@ const Login = () => {
       console.log('Auth successful:', authData);
 
       if (authData.user) {
-        // After successful login, fetch the user's profile
-        console.log('Fetching user profile for ID:', authData.user.id);
+        // After successful login, fetch the user's role
+        console.log('Fetching user role for ID:', authData.user.id);
         
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
           .select('role')
-          .eq('id', authData.user.id)
+          .eq('user_id', authData.user.id)
           .single();
 
-        if (profileError) {
-          console.error('Error fetching profile:', profileError);
-          throw new Error("Error fetching user profile");
+        if (roleError) {
+          console.error('Error fetching role:', roleError);
+          throw new Error("Error fetching user role");
         }
 
-        console.log('Profile data:', profileData);
+        console.log('Role data:', roleData);
 
         // Route based on user role
-        if (profileData?.role === 'admin') {
+        if (roleData?.role === 'admin') {
           navigate("/admin");
+        } else if (roleData?.role === 'manager') {
+          navigate("/admin"); // managers also use admin dashboard
         } else {
           navigate("/employee");
         }

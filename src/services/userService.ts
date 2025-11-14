@@ -9,15 +9,33 @@ export const fetchUsers = async () => {
   return data;
 };
 
+// Get user role
+export const getUserRole = async (userId: string): Promise<'admin' | 'manager' | 'employee' | null> => {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .single();
+  
+  if (error) {
+    console.error("Error fetching user role:", error);
+    return null;
+  }
+  
+  return data?.role || null;
+};
+
 // Create a new user
 export const createUser = async (userData: UserFormData) => {
   try {
-    // First create the user in auth
+    // First create the user in auth with metadata
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: userData.email,
       password: userData.password,
       options: {
         data: {
+          name: userData.name,
+          employee_id: userData.employeeId,
           role: userData.role,
         },
       },
@@ -31,20 +49,19 @@ export const createUser = async (userData: UserFormData) => {
       throw authError;
     }
 
+    // The trigger will automatically create the profile and user_roles
+    // But we can update the profile with additional info
     if (authData.user) {
-      // Then create the profile
       const { error: profileError } = await supabase
         .from("profiles")
-        .insert({
-          id: authData.user.id,
-          name: userData.name,
-          email: userData.email,
-          employee_id: userData.employeeId,
+        .update({
           designation: userData.designation,
-          role: userData.role,
-        });
+        })
+        .eq("id", authData.user.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error("Error updating profile:", profileError);
+      }
     }
   } catch (error) {
     if (error instanceof Error) {
@@ -61,19 +78,14 @@ export const deleteUser = async (userId: string) => {
     const { data: currentUser, error: currentUserError } = await supabase.auth.getUser();
     if (currentUserError) throw currentUserError;
 
-    const { data: adminProfile, error: adminProfileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', currentUser.user.id)
-      .single();
+    const userRole = await getUserRole(currentUser.user.id);
 
-    if (adminProfileError) throw adminProfileError;
-
-    if (adminProfile.role !== 'admin') {
+    if (userRole !== 'admin') {
       throw new Error('Only admin users can delete users');
     }
 
     // Delete from profiles first - this will work because of our RLS policy
+    // This will cascade delete to user_roles as well
     const { error: profileError } = await supabase
       .from("profiles")
       .delete()

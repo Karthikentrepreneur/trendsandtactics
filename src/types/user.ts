@@ -1,10 +1,9 @@
 
 export interface User {
   id: string;
-  name: string | null;
-  email: string | null;
-  role: string | null;
-  employee_id: string | null;
+  name: string;
+  email: string;
+  employee_id: string;
   designation: string | null;
   date_of_birth: string | null;
   date_of_joining: string | null;
@@ -12,9 +11,10 @@ export interface User {
   mothers_name: string | null;
   address: string | null;
   contact_number: string | null;
-  emergency_contact: string | null;
-  profile_photo: string | null;
-  department: string | null; // Keep as nullable
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string;
+  role?: 'admin' | 'manager' | 'employee'; // Optional, fetched from user_roles
 }
 
 export interface UserFormData {
