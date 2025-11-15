@@ -29,5 +29,16 @@ export interface EmployeeProfile {
   mothers_name: string;
   address: string;
   contact_number: string;
-  emergency_contact: string;
+}
+
+export interface Attendance {
+  id: string;
+  user_id: string;
+  date: string;
+  status: 'present' | 'absent' | 'half_day' | 'late';
+  check_in_time: string | null;
+  check_out_time: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }

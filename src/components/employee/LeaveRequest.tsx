@@ -179,7 +179,7 @@ const LeaveRequest = () => {
               <TableBody>
                 {requests.map((request) => (
                   <TableRow key={request.id}>
-                    <TableCell>{request.type}</TableCell>
+                    <TableCell>{request.leave_type}</TableCell>
                     <TableCell>{new Date(request.start_date).toLocaleDateString()}</TableCell>
                     <TableCell>{new Date(request.end_date).toLocaleDateString()}</TableCell>
                     <TableCell>{request.reason}</TableCell>

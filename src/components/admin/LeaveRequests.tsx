@@ -121,7 +121,7 @@ const LeaveRequests = () => {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{request.type}</TableCell>
+                      <TableCell className="whitespace-nowrap">{request.leave_type}</TableCell>
                       <TableCell className="whitespace-nowrap">
                         {new Date(request.start_date).toLocaleDateString()}
                       </TableCell>

@@ -30,11 +30,14 @@ export interface Task {
   id: string;
   title: string;
   description: string | null;
-  status: string | null;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | null;
+  priority: string | null;
   due_date: string | null;
-  assigned_date: string | null;
+  completed_at: string | null;
   assigned_to: string | null;
   assigned_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PayslipFormValues {
@@ -52,10 +55,29 @@ export interface PayslipFormValues {
 export interface SalaryInformation {
   id: string;
   employee_id: string;
+  user_id: string;
   gross_salary: number;
   epf_percentage: number;
   total_deduction: number;
   net_pay: number;
   created_at: string;
-  updated_at: string | null;
+  updated_at: string;
+}
+
+export interface Payslip {
+  id: string;
+  user_id: string;
+  month: number;
+  year: number;
+  basic_salary: number;
+  hra: number;
+  da: number;
+  ta: number;
+  other_allowances: number;
+  epf_deduction: number;
+  other_deductions: number;
+  gross_salary: number;
+  net_salary: number;
+  created_at: string;
+  updated_at: string;
 }

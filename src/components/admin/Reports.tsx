@@ -113,9 +113,9 @@ const Reports = () => {
                   <TableRow key={employee.id} className="hover:bg-muted/50">
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-3">
-                        {employee.profile_photo ? (
+                        {employee.avatar_url ? (
                           <img
-                            src={employee.profile_photo}
+                            src={employee.avatar_url}
                             alt={employee.name || ''}
                             className="h-8 w-8 rounded-full object-cover"
                           />
