@@ -77,9 +77,9 @@ const Payroll = () => {
                 >
                   <CardContent className="p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                      {employee.profile_photo ? (
+                      {employee.avatar_url ? (
                         <img
-                          src={employee.profile_photo}
+                          src={employee.avatar_url}
                           alt={employee.name || ''}
                           className="h-12 w-12 rounded-full object-cover"
                         />

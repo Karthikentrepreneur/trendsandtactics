@@ -26,7 +26,7 @@ export const LeaveRequestsList = ({ requests }: LeaveRequestsListProps) => {
             {requests.slice(0, 5).map((request) => (
               <div key={request.id} className="flex flex-col sm:flex-row justify-between p-4 border rounded-lg bg-white shadow-sm gap-3">
                 <div className="space-y-2">
-                  <p className="font-medium text-sm sm:text-base">{request.type}</p>
+                  <p className="font-medium text-sm sm:text-base">{request.leave_type}</p>
                   <div className="space-y-1">
                     <p className="text-xs sm:text-sm text-muted-foreground">
                       From: {new Date(request.start_date).toLocaleDateString()}

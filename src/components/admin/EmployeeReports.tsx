@@ -306,9 +306,9 @@ const EmployeePerformance = () => {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-4">
-            {employee?.profile_photo && (
+            {employee?.avatar_url && (
               <img
-                src={employee.profile_photo}
+                src={employee.avatar_url}
                 alt={employee.name || ''}
                 className="h-16 w-16 rounded-full object-cover"
               />
@@ -417,7 +417,7 @@ const EmployeePerformance = () => {
                   {leaveRequests.map((request) => (
                     <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div>
-                        <h4 className="font-medium">{request.type}</h4>
+                        <h4 className="font-medium">{request.leave_type}</h4>
                         <p className="text-sm text-muted-foreground">
                           From: {new Date(request.start_date).toLocaleDateString()}
                         </p>
