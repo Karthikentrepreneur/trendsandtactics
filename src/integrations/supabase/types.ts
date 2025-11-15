@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
   public: {
     Tables: {
       announcements: {
@@ -15,403 +20,235 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           id: string
-          image: string | null
+          priority: string | null
           title: string
+          updated_at: string | null
         }
         Insert: {
           content: string
           created_at?: string | null
           created_by?: string | null
           id?: string
-          image?: string | null
+          priority?: string | null
           title: string
+          updated_at?: string | null
         }
         Update: {
           content?: string
           created_at?: string | null
           created_by?: string | null
           id?: string
-          image?: string | null
+          priority?: string | null
           title?: string
+          updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "announcements_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      bank_information: {
+      attendance: {
         Row: {
-          account_number: string
-          account_type: string
-          bank_address: string | null
-          bank_name: string
-          branch_name: string
+          check_in_time: string | null
+          check_out_time: string | null
           created_at: string | null
-          employee_id: string | null
+          date: string
           id: string
-          ifsc_code: string
+          notes: string | null
+          status: Database["public"]["Enums"]["attendance_status"] | null
           updated_at: string | null
+          user_id: string
         }
         Insert: {
-          account_number: string
-          account_type: string
-          bank_address?: string | null
-          bank_name: string
-          branch_name: string
+          check_in_time?: string | null
+          check_out_time?: string | null
           created_at?: string | null
-          employee_id?: string | null
+          date: string
           id?: string
-          ifsc_code: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["attendance_status"] | null
           updated_at?: string | null
+          user_id: string
         }
         Update: {
-          account_number?: string
-          account_type?: string
-          bank_address?: string | null
-          bank_name?: string
-          branch_name?: string
+          check_in_time?: string | null
+          check_out_time?: string | null
           created_at?: string | null
-          employee_id?: string | null
+          date?: string
           id?: string
-          ifsc_code?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["attendance_status"] | null
           updated_at?: string | null
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "bank_information_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      employee_documents: {
-        Row: {
-          document_name: string
-          document_type: string
-          employee_id: string | null
-          file_path: string
-          id: string
-          uploaded_at: string | null
-          uploaded_by: string | null
-        }
-        Insert: {
-          document_name: string
-          document_type: string
-          employee_id?: string | null
-          file_path: string
-          id?: string
-          uploaded_at?: string | null
-          uploaded_by?: string | null
-        }
-        Update: {
-          document_name?: string
-          document_type?: string
-          employee_id?: string | null
-          file_path?: string
-          id?: string
-          uploaded_at?: string | null
-          uploaded_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employee_documents_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_documents_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       leave_requests: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           created_at: string | null
-          employee_id: string | null
           end_date: string
           id: string
-          reason: string | null
+          leave_type: string
+          reason: string
+          rejection_reason: string | null
           start_date: string
-          status: string | null
-          type: string
+          status: Database["public"]["Enums"]["leave_status"] | null
           updated_at: string | null
+          user_id: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string | null
-          employee_id?: string | null
           end_date: string
           id?: string
-          reason?: string | null
+          leave_type: string
+          reason: string
+          rejection_reason?: string | null
           start_date: string
-          status?: string | null
-          type: string
+          status?: Database["public"]["Enums"]["leave_status"] | null
           updated_at?: string | null
+          user_id: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string | null
-          employee_id?: string | null
           end_date?: string
           id?: string
-          reason?: string | null
+          leave_type?: string
+          reason?: string
+          rejection_reason?: string | null
           start_date?: string
-          status?: string | null
-          type?: string
+          status?: Database["public"]["Enums"]["leave_status"] | null
           updated_at?: string | null
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "leave_requests_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       payroll: {
         Row: {
-          bonus: number | null
-          created_at: string | null
-          employee_id: string | null
-          id: string
-          month: string
-          salary: number | null
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          bonus?: number | null
-          created_at?: string | null
-          employee_id?: string | null
-          id?: string
-          month: string
-          salary?: number | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          bonus?: number | null
-          created_at?: string | null
-          employee_id?: string | null
-          id?: string
-          month?: string
-          salary?: number | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payroll_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      payslips: {
-        Row: {
+          allowances: number | null
           basic_salary: number
           created_at: string | null
-          da: number
-          employee_id: string | null
-          epf_deduction: number
-          hra: number
+          deductions: number | null
           id: string
-          month: string
+          month: number
           net_salary: number
-          other_allowances: number
-          other_deductions: number
-          ta: number
+          payment_date: string | null
+          status: string | null
           updated_at: string | null
-          year: string
+          user_id: string
+          year: number
         }
         Insert: {
-          basic_salary?: number
+          allowances?: number | null
+          basic_salary: number
           created_at?: string | null
-          da?: number
-          employee_id?: string | null
-          epf_deduction?: number
-          hra?: number
+          deductions?: number | null
           id?: string
-          month: string
-          net_salary?: number
-          other_allowances?: number
-          other_deductions?: number
-          ta?: number
+          month: number
+          net_salary: number
+          payment_date?: string | null
+          status?: string | null
           updated_at?: string | null
-          year: string
+          user_id: string
+          year: number
         }
         Update: {
+          allowances?: number | null
           basic_salary?: number
           created_at?: string | null
-          da?: number
-          employee_id?: string | null
-          epf_deduction?: number
-          hra?: number
+          deductions?: number | null
           id?: string
-          month?: string
+          month?: number
           net_salary?: number
-          other_allowances?: number
-          other_deductions?: number
-          ta?: number
+          payment_date?: string | null
+          status?: string | null
           updated_at?: string | null
-          year?: string
+          user_id?: string
+          year?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "payslips_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      professional_experience: {
-        Row: {
-          company_name: string
-          created_at: string | null
-          employee_id: string | null
-          end_date: string | null
-          id: string
-          position: string
-          responsibilities: string | null
-          start_date: string
-        }
-        Insert: {
-          company_name: string
-          created_at?: string | null
-          employee_id?: string | null
-          end_date?: string | null
-          id?: string
-          position: string
-          responsibilities?: string | null
-          start_date: string
-        }
-        Update: {
-          company_name?: string
-          created_at?: string | null
-          employee_id?: string | null
-          end_date?: string | null
-          id?: string
-          position?: string
-          responsibilities?: string | null
-          start_date?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "professional_experience_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
           address: string | null
+          avatar_url: string | null
           contact_number: string | null
+          created_at: string | null
           date_of_birth: string | null
           date_of_joining: string | null
           designation: string | null
-          email: string | null
-          emergency_contact: string | null
-          employee_id: string | null
+          email: string
+          employee_id: string
           fathers_name: string | null
           id: string
           mothers_name: string | null
-          name: string | null
-          password: string | null
-          profile_photo: string | null
-          role: string | null
-        }
-        Insert: {
-          address?: string | null
-          contact_number?: string | null
-          date_of_birth?: string | null
-          date_of_joining?: string | null
-          designation?: string | null
-          email?: string | null
-          emergency_contact?: string | null
-          employee_id?: string | null
-          fathers_name?: string | null
-          id: string
-          mothers_name?: string | null
-          name?: string | null
-          password?: string | null
-          profile_photo?: string | null
-          role?: string | null
-        }
-        Update: {
-          address?: string | null
-          contact_number?: string | null
-          date_of_birth?: string | null
-          date_of_joining?: string | null
-          designation?: string | null
-          email?: string | null
-          emergency_contact?: string | null
-          employee_id?: string | null
-          fathers_name?: string | null
-          id?: string
-          mothers_name?: string | null
-          name?: string | null
-          password?: string | null
-          profile_photo?: string | null
-          role?: string | null
-        }
-        Relationships: []
-      }
-      salary_information: {
-        Row: {
-          created_at: string | null
-          employee_id: string | null
-          epf_percentage: number | null
-          gross_salary: number
-          id: string
-          net_pay: number | null
-          total_deduction: number | null
+          name: string
           updated_at: string | null
         }
         Insert: {
+          address?: string | null
+          avatar_url?: string | null
+          contact_number?: string | null
           created_at?: string | null
-          employee_id?: string | null
-          epf_percentage?: number | null
-          gross_salary: number
-          id?: string
-          net_pay?: number | null
-          total_deduction?: number | null
+          date_of_birth?: string | null
+          date_of_joining?: string | null
+          designation?: string | null
+          email: string
+          employee_id: string
+          fathers_name?: string | null
+          id: string
+          mothers_name?: string | null
+          name: string
           updated_at?: string | null
         }
         Update: {
+          address?: string | null
+          avatar_url?: string | null
+          contact_number?: string | null
           created_at?: string | null
-          employee_id?: string | null
-          epf_percentage?: number | null
-          gross_salary?: number
+          date_of_birth?: string | null
+          date_of_joining?: string | null
+          designation?: string | null
+          email?: string
+          employee_id?: string
+          fathers_name?: string | null
           id?: string
-          net_pay?: number | null
-          total_deduction?: number | null
+          mothers_name?: string | null
+          name?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      task_comments: {
+        Row: {
+          comment: string
+          created_at: string | null
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string | null
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string | null
+          id?: string
+          task_id?: string
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "salary_information_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
+            foreignKeyName: "task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -419,66 +256,84 @@ export type Database = {
       tasks: {
         Row: {
           assigned_by: string | null
-          assigned_date: string | null
           assigned_to: string | null
+          completed_at: string | null
           created_at: string | null
           description: string | null
           due_date: string | null
           id: string
-          status: string | null
+          priority: string | null
+          status: Database["public"]["Enums"]["task_status"] | null
           title: string
           updated_at: string | null
         }
         Insert: {
           assigned_by?: string | null
-          assigned_date?: string | null
           assigned_to?: string | null
+          completed_at?: string | null
           created_at?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
-          status?: string | null
+          priority?: string | null
+          status?: Database["public"]["Enums"]["task_status"] | null
           title: string
           updated_at?: string | null
         }
         Update: {
           assigned_by?: string | null
-          assigned_date?: string | null
           assigned_to?: string | null
+          completed_at?: string | null
           created_at?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
-          status?: string | null
+          priority?: string | null
+          status?: Database["public"]["Enums"]["task_status"] | null
           title?: string
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "tasks_assigned_by_fkey"
-            columns: ["assigned_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tasks_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "manager" | "employee"
+      attendance_status: "present" | "absent" | "half_day" | "late"
+      leave_status: "pending" | "approved" | "rejected"
+      task_status: "pending" | "in_progress" | "completed" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -486,27 +341,33 @@ export type Database = {
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -514,20 +375,24 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -535,20 +400,24 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -556,29 +425,46 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
-    | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
-    | { schema: keyof Database },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      app_role: ["admin", "manager", "employee"],
+      attendance_status: ["present", "absent", "half_day", "late"],
+      leave_status: ["pending", "approved", "rejected"],
+      task_status: ["pending", "in_progress", "completed", "cancelled"],
+    },
+  },
+} as const
