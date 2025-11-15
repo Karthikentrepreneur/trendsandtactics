@@ -80,6 +80,33 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_documents: {
+        Row: {
+          document_name: string
+          document_type: string
+          file_path: string
+          id: string
+          uploaded_at: string | null
+          user_id: string
+        }
+        Insert: {
+          document_name: string
+          document_type: string
+          file_path: string
+          id?: string
+          uploaded_at?: string | null
+          user_id: string
+        }
+        Update: {
+          document_name?: string
+          document_type?: string
+          file_path?: string
+          id?: string
+          uploaded_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       leave_requests: {
         Row: {
           approved_at: string | null
@@ -170,6 +197,96 @@ export type Database = {
         }
         Relationships: []
       }
+      payslips: {
+        Row: {
+          basic_salary: number
+          created_at: string | null
+          da: number | null
+          epf_deduction: number | null
+          gross_salary: number
+          hra: number | null
+          id: string
+          month: number
+          net_salary: number
+          other_allowances: number | null
+          other_deductions: number | null
+          ta: number | null
+          updated_at: string | null
+          user_id: string
+          year: number
+        }
+        Insert: {
+          basic_salary: number
+          created_at?: string | null
+          da?: number | null
+          epf_deduction?: number | null
+          gross_salary: number
+          hra?: number | null
+          id?: string
+          month: number
+          net_salary: number
+          other_allowances?: number | null
+          other_deductions?: number | null
+          ta?: number | null
+          updated_at?: string | null
+          user_id: string
+          year: number
+        }
+        Update: {
+          basic_salary?: number
+          created_at?: string | null
+          da?: number | null
+          epf_deduction?: number | null
+          gross_salary?: number
+          hra?: number | null
+          id?: string
+          month?: number
+          net_salary?: number
+          other_allowances?: number | null
+          other_deductions?: number | null
+          ta?: number | null
+          updated_at?: string | null
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      professional_experience: {
+        Row: {
+          company_name: string
+          created_at: string | null
+          end_date: string | null
+          id: string
+          position: string
+          responsibilities: string | null
+          start_date: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          company_name: string
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          position: string
+          responsibilities?: string | null
+          start_date: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          company_name?: string
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          position?: string
+          responsibilities?: string | null
+          start_date?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address: string | null
@@ -218,6 +335,42 @@ export type Database = {
           mothers_name?: string | null
           name?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      salary_information: {
+        Row: {
+          created_at: string | null
+          employee_id: string
+          epf_percentage: number | null
+          gross_salary: number
+          id: string
+          net_pay: number
+          total_deduction: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          employee_id: string
+          epf_percentage?: number | null
+          gross_salary: number
+          id?: string
+          net_pay: number
+          total_deduction?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          employee_id?: string
+          epf_percentage?: number | null
+          gross_salary?: number
+          id?: string
+          net_pay?: number
+          total_deduction?: number | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }

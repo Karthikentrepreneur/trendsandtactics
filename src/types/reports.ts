@@ -10,14 +10,17 @@ export interface PerformanceAnalytics {
 
 export interface LeaveRequest {
   id: string;
-  employee_id: string;
-  type: string;
+  user_id: string;
+  leave_type: string;
   start_date: string;
   end_date: string;
   reason: string;
-  status: string; // Changed from strict union type to string to match database
+  status: 'pending' | 'approved' | 'rejected';
+  approved_by?: string | null;
+  approved_at?: string | null;
+  rejection_reason?: string | null;
   created_at: string;
-  updated_at?: string; // Added to match the database schema
+  updated_at: string;
 }
 
 export interface EmployeeProfile {
