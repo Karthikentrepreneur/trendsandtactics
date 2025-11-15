@@ -91,7 +91,7 @@ const EmployeeDashboard = () => {
         startY: 120,
         head: [['Type', 'From', 'To', 'Status']],
         body: stats.leaves.map(leave => [
-          leave.type,
+          leave.leave_type,
           format(new Date(leave.start_date), 'PP'),
           format(new Date(leave.end_date), 'PP'),
           leave.status
@@ -249,7 +249,7 @@ const EmployeeDashboard = () => {
                 {stats.leaves.map((leave) => (
                   <div key={leave.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
                     <div>
-                      <p className="font-medium">{leave.type}</p>
+                      <p className="font-medium">{leave.leave_type}</p>
                       <p className="text-sm text-gray-600">
                         {format(new Date(leave.start_date), 'PP')} - {format(new Date(leave.end_date), 'PP')}
                       </p>

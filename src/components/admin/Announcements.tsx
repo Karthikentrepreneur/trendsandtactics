@@ -93,7 +93,14 @@ const Announcements = () => {
         return;
       }
 
-      if (profileData.role !== 'admin') {
+      // Check user role from user_roles table
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (roleError || roleData?.role !== 'admin') {
         toast({
           title: "Error",
           description: "Only admins can manage announcements",
@@ -275,13 +282,6 @@ const Announcements = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p>{announcement.content}</p>
-                {announcement.image && (
-                  <img
-                    src={announcement.image}
-                    alt={announcement.title}
-                    className="rounded-lg max-h-60 object-cover"
-                  />
-                )}
                 <p className="text-sm text-muted-foreground">
                   Posted on {new Date(announcement.created_at).toLocaleDateString()}
                 </p>

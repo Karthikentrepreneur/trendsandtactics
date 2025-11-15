@@ -119,7 +119,7 @@ const EmployeeList = ({ employees, onEmployeeDeleted, loading }: EmployeeListPro
                   <TableRow key={employee.id}>
                     <TableCell>
                       <Avatar>
-                        <AvatarImage src={employee.profile_photo || undefined} />
+                        <AvatarImage src={employee.avatar_url || undefined} />
                         <AvatarFallback>{employee.name?.charAt(0)}</AvatarFallback>
                       </Avatar>
                     </TableCell>
