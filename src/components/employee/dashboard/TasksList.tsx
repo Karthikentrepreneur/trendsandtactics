@@ -23,7 +23,7 @@ export const TasksList = ({ tasks }: TasksListProps) => {
                     <p className="font-medium text-sm sm:text-base line-clamp-2">{task.title}</p>
                     <span className={`px-2 py-1 rounded-full text-xs w-fit ${
                       task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      task.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' :
+                      task.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
                       {task.status}

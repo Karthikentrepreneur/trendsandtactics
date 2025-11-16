@@ -34,6 +34,7 @@ export interface Task {
 export interface LeaveRequest {
   id: string;
   user_id: string;
+  type: string;
   leave_type: string;
   start_date: string;
   end_date: string;

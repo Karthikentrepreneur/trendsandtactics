@@ -15,20 +15,27 @@ const LeaveRequests = () => {
     queryFn: async () => {
       const { data, error} = await supabase
         .from('leave_requests')
-        .select(`
-          *,
-          profiles:user_id (
-            name,
-            employee_id,
-            designation,
-            email
-          )
-        `)
-        .order('created_at', { ascending: false });
+        .select('*')
+        .order('created_at', { ascending: false});
       
       if (error) throw error;
-      console.log('Leave requests with profiles:', data);
-      return data;
+      
+      // Fetch user profiles separately
+      const userIds = [...new Set(data.map(r => r.user_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, name, employee_id, designation, email')
+        .in('id', userIds);
+      
+      // Merge profiles with requests
+      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const enrichedData = data.map(request => ({
+        ...request,
+        profiles: profilesMap.get(request.user_id)
+      }));
+      
+      console.log('Leave requests with profiles:', enrichedData);
+      return enrichedData;
     }
   });
 

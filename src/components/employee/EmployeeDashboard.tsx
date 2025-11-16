@@ -89,7 +89,7 @@ const EmployeeDashboard = () => {
         });
         throw error;
       }
-      return data;
+      return data.map(req => ({ ...req, type: req.leave_type }));
     },
     enabled: !!userId
   });

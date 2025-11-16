@@ -68,8 +68,11 @@ const LeaveRequest = () => {
       const { error } = await supabase
         .from('leave_requests')
         .insert({
-          ...formData,
-          employee_id: user.id,
+          user_id: user.id,
+          leave_type: formData.type,
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          reason: formData.reason,
           status: 'pending'
         });
 
