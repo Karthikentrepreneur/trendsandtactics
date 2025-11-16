@@ -39,9 +39,10 @@ const Tasks = () => {
 
   const handleStatusUpdate = async (taskId: string, newStatus: string) => {
     try {
+    const validStatus = newStatus as 'pending' | 'in_progress' | 'completed' | 'cancelled';
       const { error } = await supabase
         .from('tasks')
-        .update({ status: newStatus })
+        .update({ status: validStatus })
         .eq('id', taskId);
 
       if (error) throw error;
@@ -65,7 +66,7 @@ const Tasks = () => {
     switch (status) {
       case 'completed':
         return 'bg-green-500 hover:bg-green-600';
-      case 'in-progress':
+      case 'in_progress':
         return 'bg-yellow-500 hover:bg-yellow-600';
       default:
         return 'bg-gray-500 hover:bg-gray-600';
@@ -103,8 +104,8 @@ const Tasks = () => {
                     <p className="text-gray-800">{new Date(task.due_date).toLocaleDateString()}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Assigned Date</p>
-                    <p className="text-gray-800">{new Date(task.assigned_date).toLocaleDateString()}</p>
+                    <p className="text-sm font-medium text-gray-500">Created Date</p>
+                    <p className="text-gray-800">{new Date(task.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pt-2">

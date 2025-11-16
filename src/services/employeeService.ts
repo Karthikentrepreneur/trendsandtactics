@@ -30,47 +30,9 @@ export const employeeService = {
   },
 
   updateBankInfo: async (employeeId: string, data: any) => {
-    // First, check if a record exists
-    const { data: existingRecord, error: fetchError } = await supabase
-      .from('bank_information')
-      .select('*')
-      .eq('employee_id', employeeId)
-      .maybeSingle();
-    
-    if (fetchError) throw fetchError;
-
-    if (existingRecord) {
-      // Update existing record
-      const { error } = await supabase
-        .from('bank_information')
-        .update({
-          bank_name: data.bank_name,
-          branch_name: data.branch_name,
-          account_number: data.account_number,
-          ifsc_code: data.ifsc_code,
-          account_type: data.account_type,
-          bank_address: data.bank_address,
-          updated_at: new Date().toISOString()
-        })
-        .eq('employee_id', employeeId);
-      
-      if (error) throw error;
-    } else {
-      // Insert new record
-      const { error } = await supabase
-        .from('bank_information')
-        .insert({
-          employee_id: employeeId,
-          bank_name: data.bank_name,
-          branch_name: data.branch_name,
-          account_number: data.account_number,
-          ifsc_code: data.ifsc_code,
-          account_type: data.account_type,
-          bank_address: data.bank_address,
-        });
-      
-      if (error) throw error;
-    }
+    // Bank information table not yet implemented
+    console.log('Bank info update skipped - table not implemented');
+    return;
   },
 
   updateSalaryInfo: async (employeeId: string, data: any) => {
@@ -103,6 +65,7 @@ export const employeeService = {
         .from('salary_information')
         .insert({
           employee_id: employeeId,
+          user_id: employeeId,
           gross_salary: data.gross_salary,
           epf_percentage: data.epf_percentage || 10.00,
           net_pay: data.net_pay,
@@ -124,7 +87,7 @@ export const employeeService = {
     const { error } = await supabase
       .from('professional_experience')
       .insert({
-        employee_id: employeeId,
+        user_id: employeeId,
         ...formattedData
       });
     
@@ -153,7 +116,7 @@ export const employeeService = {
     const { error: dbError } = await supabase
       .from('employee_documents')
       .insert({
-        employee_id: employeeId,
+        user_id: employeeId,
         document_name: name,
         document_type: type,
         file_path: filePath,

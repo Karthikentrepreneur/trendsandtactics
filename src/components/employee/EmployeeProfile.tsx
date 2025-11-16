@@ -14,8 +14,13 @@ interface Profile {
   email: string | null;
   employee_id: string | null;
   designation: string | null;
-  role: string | null;
-  profile_photo: string | null;
+  avatar_url: string | null;
+  date_of_birth: string | null;
+  date_of_joining: string | null;
+  fathers_name: string | null;
+  mothers_name: string | null;
+  address: string | null;
+  contact_number: string | null;
 }
 
 const EmployeeProfile = () => {
@@ -65,7 +70,7 @@ const EmployeeProfile = () => {
         email: profile.email || "",
         employeeId: profile.employee_id || "",
         designation: profile.designation || "",
-        profilePhoto: profile.profile_photo || "",
+        profilePhoto: profile.avatar_url || "",
       });
     }
   }, [profile]);
@@ -90,7 +95,7 @@ const EmployeeProfile = () => {
 
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ profile_photo: publicUrl })
+        .update({ avatar_url: publicUrl })
         .eq('id', userId);
 
       if (updateError) throw updateError;
