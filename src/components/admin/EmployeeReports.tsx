@@ -39,8 +39,7 @@ const EmployeePerformance = () => {
     fathers_name: "",
     mothers_name: "",
     address: "",
-    contact_number: "",
-    emergency_contact: ""
+    contact_number: ""
   });
 
   const getMonthOptions = () => {
@@ -149,7 +148,7 @@ const EmployeePerformance = () => {
         const { data, error } = await supabase
           .from('leave_requests')
           .select('*')
-          .eq('employee_id', employeeId)
+          .eq('user_id', employeeId)
           .order('created_at', { ascending: false });
         
         if (error) {
@@ -388,7 +387,7 @@ const EmployeePerformance = () => {
                         className={
                           task.status === 'completed'
                             ? 'bg-green-500'
-                            : task.status === 'in-progress'
+                            : task.status === 'in_progress'
                             ? 'bg-yellow-500'
                             : 'bg-gray-500'
                         }
@@ -512,7 +511,7 @@ const EmployeePerformance = () => {
                   <Label htmlFor="emergency_contact">Emergency Contact</Label>
                   <Input
                     id="emergency_contact"
-                    value={profileData.emergency_contact}
+                    value={profileData.contact_number}
                     onChange={(e) => setProfileData(prev => ({ ...prev, emergency_contact: e.target.value }))}
                     disabled={!isEditing}
                   />

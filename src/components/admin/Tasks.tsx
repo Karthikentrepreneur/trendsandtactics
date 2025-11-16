@@ -20,9 +20,8 @@ const Tasks = () => {
     const fetchEmployees = async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('*')
-        .eq('role', 'employee');
-      setEmployees(data as User[] || []);
+        .select('*');
+      setEmployees((data || []) as User[]);
     };
     fetchEmployees();
   }, []);

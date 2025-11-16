@@ -91,13 +91,24 @@ const UserList = () => {
     }
   };
 
-  const handleUserUpdated = (updatedUser: User) => {
-    setUsers(users.map(user => user.id === updatedUser.id ? updatedUser : user));
-    setEditUser(null);
-    toast({
-      title: "Success",
-      description: "User updated successfully",
-    });
+  const handleUserUpdated = async () => {
+    // Refetch users from server
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      setUsers(data as User[] || []);
+      setEditUser(null);
+      toast({
+        title: "Success",
+        description: "User updated successfully",
+      });
+    } catch (error) {
+      console.error("Error refreshing users:", error);
+    }
   };
 
   const filteredUsers = users.filter(user => 
