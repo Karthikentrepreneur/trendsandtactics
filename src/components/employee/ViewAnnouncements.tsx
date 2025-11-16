@@ -71,14 +71,6 @@ const ViewAnnouncements = () => {
                 <CardTitle>{announcement.title}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p>{announcement.content}</p>
-                {announcement.image && (
-                  <img
-                    src={announcement.image}
-                    alt={announcement.title}
-                    className="rounded-lg max-h-60 object-cover"
-                  />
-                )}
                 <p className="text-sm text-muted-foreground">
                   Posted on {new Date(announcement.created_at || '').toLocaleDateString()}
                 </p>

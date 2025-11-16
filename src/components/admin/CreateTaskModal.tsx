@@ -21,7 +21,6 @@ const CreateTaskModal = () => {
   const [assignedTo, setAssignedTo] = useState("");
   const [dueDate, setDueDate] = useState<Date>();
   const [showCalendar, setShowCalendar] = useState(false);
-  const [assignedDate] = useState<Date>(new Date());
   const [employees, setEmployees] = useState<User[]>([]);
   const { toast } = useToast();
 
@@ -89,7 +88,6 @@ const CreateTaskModal = () => {
           assigned_to: assignedTo,
           assigned_by: userData.user.id,
           due_date: dueDate.toISOString(),
-          assigned_date: assignedDate.toISOString(),
           status: 'pending'
         });
 
