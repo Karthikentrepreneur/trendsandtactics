@@ -27,7 +27,7 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: EditUserDia
   const [email, setEmail] = useState(user.email || "");
   const [employeeId, setEmployeeId] = useState(user.employee_id || "");
   const [designation, setDesignation] = useState(user.designation || "");
-  const [role, setRole] = useState(user.role || "employee");
+  const [role, setRole] = useState<'admin' | 'manager' | 'employee'>(user.role as 'admin' | 'manager' | 'employee' || "employee");
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,7 +109,7 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdated }: EditUserDia
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
-            <Select onValueChange={setRole} value={role}>
+            <Select onValueChange={(val) => setRole(val as 'admin' | 'manager' | 'employee')} value={role}>
               <SelectTrigger id="role">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
