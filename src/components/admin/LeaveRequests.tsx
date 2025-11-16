@@ -13,11 +13,11 @@ const LeaveRequests = () => {
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['leave-requests'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('leave_requests')
         .select(`
           *,
-          profiles:employee_id (
+          profiles:user_id (
             name,
             employee_id,
             designation,

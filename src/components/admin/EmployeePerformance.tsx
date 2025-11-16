@@ -43,9 +43,9 @@ import { attendanceService } from "@/services/attendanceService";
 
 interface Payslip {
   id: string;
-  employee_id: string;
-  month: string;
-  year: string;
+  user_id: string;
+  month: number;
+  year: number;
   basic_salary: number;
   hra: number;
   da: number;
@@ -53,13 +53,14 @@ interface Payslip {
   other_allowances: number;
   epf_deduction: number;
   other_deductions: number;
+  gross_salary: number;
   net_salary: number;
   created_at: string;
 }
 
 interface ProfessionalExperience {
   id: string;
-  employee_id: string;
+  user_id: string;
   company_name: string;
   position: string;
   start_date: string;
@@ -70,7 +71,7 @@ interface ProfessionalExperience {
 
 interface EmployeeDocument {
   id: string;
-  employee_id: string;
+  user_id: string;
   document_type: string;
   document_name: string;
   file_path: string;
