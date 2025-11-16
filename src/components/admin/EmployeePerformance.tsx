@@ -211,7 +211,7 @@ const EmployeePerformance = () => {
     const { data, error } = await supabase
       .from("payslips")
       .select("*")
-      .eq("employee_id", employeeId)
+      .eq("user_id", employeeId)
       .order("created_at", { ascending: false });
     
     if (error) {
@@ -233,7 +233,7 @@ const EmployeePerformance = () => {
     const { data, error } = await supabase
       .from("professional_experience")
       .select("*")
-      .eq("employee_id", employeeId)
+      .eq("user_id", employeeId)
       .order("start_date", { ascending: false });
     
     if (error) {
@@ -250,7 +250,7 @@ const EmployeePerformance = () => {
     const { data, error } = await supabase
       .from("employee_documents")
       .select("*")
-      .eq("employee_id", employeeId)
+      .eq("user_id", employeeId)
       .order("uploaded_at", { ascending: false });
     
     if (error) {
@@ -294,7 +294,7 @@ const EmployeePerformance = () => {
       const { data: leaves } = await supabase
         .from("leave_requests")
         .select("*")
-        .eq("employee_id", employeeId)
+        .eq("user_id", employeeId)
         .eq("status", "approved");
       
       const leaveDays = leaves?.length || 0;
@@ -330,12 +330,15 @@ const EmployeePerformance = () => {
     try {
       if (!employeeId || !employee) return;
 
+      const month = typeof values.month === 'string' ? parseInt(values.month) : values.month;
+      const year = typeof values.year === 'string' ? parseInt(values.year) : values.year;
+
       const { data: existingPayslip } = await supabase
         .from("payslips")
         .select("*")
-        .eq("employee_id", employeeId)
-        .eq("month", values.month)
-        .eq("year", values.year)
+        .eq("user_id", employeeId)
+        .eq("month", month)
+        .eq("year", year)
         .maybeSingle();
 
       const totalEarnings = 
@@ -377,9 +380,9 @@ const EmployeePerformance = () => {
         result = await supabase
           .from("payslips")
           .insert({
-            employee_id: employeeId,
-            month: values.month,
-            year: values.year,
+            user_id: employeeId,
+            month: month,
+            year: year,
             basic_salary: values.basic_salary,
             hra: values.hra,
             da: values.da,
@@ -387,6 +390,7 @@ const EmployeePerformance = () => {
             other_allowances: values.other_allowances,
             epf_deduction: values.epf_deduction,
             other_deductions: values.other_deductions,
+            gross_salary: totalEarnings,
             net_salary: netSalary
           });
           
@@ -417,7 +421,7 @@ const EmployeePerformance = () => {
       const { error } = await supabase
         .from("professional_experience")
         .insert({
-          employee_id: employeeId,
+          user_id: employeeId,
           company_name: newExperience.company_name,
           position: newExperience.position,
           start_date: newExperience.start_date,
@@ -492,7 +496,7 @@ const EmployeePerformance = () => {
       const { error: dbError } = await supabase
         .from("employee_documents")
         .insert({
-          employee_id: employeeId,
+          user_id: employeeId,
           document_type: documentType,
           document_name: documentName,
           file_path: publicUrl
@@ -547,7 +551,8 @@ const EmployeePerformance = () => {
         result = await supabase
           .from("salary_information")
           .insert({
-            employee_id: employeeId,
+            user_id: employeeId,
+            employee_id: employee?.employee_id || '',
             gross_salary: data.gross_salary,
             epf_percentage: data.epf_percentage,
             total_deduction: totalDeduction,
@@ -635,9 +640,8 @@ const EmployeePerformance = () => {
     const employeeInfo = [
       ["Employee Name:", employee.name || ""],
       ["Employee ID:", employee.employee_id || ""],
-      ["Designation:", employee.designation || ""],
-      ["Department:", employee.department || ""],
-      ["Date of Joining:", employee.date_of_joining ? format(new Date(employee.date_of_joining), "dd/MM/yyyy") : ""],
+      ["Designation:", employee.designation || "N/A"],
+      ["Date of Joining:", employee.date_of_joining ? format(new Date(employee.date_of_joining), "dd/MM/yyyy") : "N/A"],
     ];
     
     autoTable(doc, {
@@ -746,7 +750,6 @@ const EmployeePerformance = () => {
         <div>
           <h1 className="text-3xl font-bold">{employee.name}</h1>
           <p className="text-gray-600">{employee.designation}</p>
-          {employee.department && <p className="text-gray-600">Department: {employee.department}</p>}
           {employee.date_of_joining && 
             <p className="text-gray-600">
               Joined on: {format(new Date(employee.date_of_joining), "MMMM dd, yyyy")}
@@ -1496,11 +1499,11 @@ const EmployeePerformance = () => {
                     </div>
                     
                     <div>
-                      <Label htmlFor="profile_emergency">Emergency Contact</Label>
+                      <Label htmlFor="profile_fathers_name">Father's Name</Label>
                       <Input 
-                        id="profile_emergency" 
-                        value={employee.emergency_contact || ''}
-                        onChange={(e) => handleUpdateProfile({ emergency_contact: e.target.value })}
+                        id="profile_fathers_name" 
+                        value={employee.fathers_name || ''}
+                        onChange={(e) => handleUpdateProfile({ fathers_name: e.target.value })}
                       />
                     </div>
                   </div>
@@ -1528,28 +1531,9 @@ const EmployeePerformance = () => {
                     </div>
                     
                     <div>
-                      <Label htmlFor="profile_department">Department</Label>
-                      <Select 
-                        value={employee.department || ''}
-                        onValueChange={(value) => handleUpdateProfile({ department: value })}
-                      >
-                        <SelectTrigger id="profile_department">
-                          <SelectValue placeholder="Select department" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {departments.map((dept) => (
-                            <SelectItem key={dept} value={dept}>
-                              {dept}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="profile_doj">Date of Joining</Label>
+                      <Label htmlFor="profile_date_of_joining">Date of Joining</Label>
                       <Input 
-                        id="profile_doj" 
+                        id="profile_date_of_joining"
                         type="date"
                         value={employee.date_of_joining || ''}
                         onChange={(e) => handleUpdateProfile({ date_of_joining: e.target.value })}

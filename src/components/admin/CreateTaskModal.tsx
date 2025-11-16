@@ -29,12 +29,10 @@ const CreateTaskModal = () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('*')
-          .eq('role', 'employee');
+          .select('*');
         
         if (error) throw error;
-        // Add type assertion to ensure the data matches the User interface
-        setEmployees(data as User[] || []);
+        setEmployees((data || []) as User[]);
       } catch (error) {
         console.error("Error fetching employees:", error);
         toast({
