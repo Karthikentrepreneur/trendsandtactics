@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { User } from "@/types/user";
+import { User } from "@/types/index";
 
 interface EditUserDialogProps {
   user: User;

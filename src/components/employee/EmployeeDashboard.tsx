@@ -78,7 +78,7 @@ const EmployeeDashboard = () => {
       const { data, error } = await supabase
         .from('leave_requests')
         .select('*')
-        .eq('employee_id', userId)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -192,13 +192,6 @@ const EmployeeDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <p>{announcement.content}</p>
-                  {announcement.image && (
-                    <img
-                      src={announcement.image}
-                      alt={announcement.title}
-                      className="mt-4 rounded-lg max-h-40 object-cover"
-                    />
-                  )}
                   <p className="text-sm text-muted-foreground mt-4">
                     Posted on {new Date(announcement.created_at || '').toLocaleDateString()}
                   </p>

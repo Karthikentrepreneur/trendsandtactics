@@ -25,7 +25,7 @@ const EmployeeDashboard = () => {
         .from('profiles')
         .select('*')
         .eq('id', employeeId)
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
       return data;
@@ -50,7 +50,7 @@ const EmployeeDashboard = () => {
         supabase
           .from('leave_requests')
           .select('*')
-          .eq('employee_id', employeeId)
+          .eq('user_id', employeeId)
           .gte('start_date', startDate.toISOString())
           .lte('end_date', endDate.toISOString())
       ]);
