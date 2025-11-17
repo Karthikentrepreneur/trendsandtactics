@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
+import { ChartFilters } from "./ChartFilters";
+import { exportToCSV, exportToPDF } from "@/utils/exportHelpers";
+import { toast } from "sonner";
 
 interface TaskData {
   week: string;
@@ -15,14 +18,17 @@ interface TaskData {
 export const TaskCompletionChart = () => {
   const [data, setData] = useState<TaskData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState<Date | undefined>(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 56);
+    return date;
+  });
+  const [endDate, setEndDate] = useState<Date | undefined>(new Date());
 
   useEffect(() => {
     const fetchTaskData = async () => {
       try {
-        // Get tasks from last 8 weeks
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - 56); // 8 weeks
+        if (!startDate || !endDate) return;
 
         const { data: tasksData, error } = await supabase
           .from('tasks')
@@ -67,7 +73,22 @@ export const TaskCompletionChart = () => {
     };
 
     fetchTaskData();
-  }, []);
+  }, [startDate, endDate]);
+
+  const handleDateRangeChange = (newStartDate: Date | undefined, newEndDate: Date | undefined) => {
+    setStartDate(newStartDate);
+    setEndDate(newEndDate);
+  };
+
+  const handleExportCSV = () => {
+    exportToCSV(data, 'task-completion-rates');
+    toast.success('Chart exported to CSV');
+  };
+
+  const handleExportPDF = () => {
+    exportToPDF(data, 'task-completion-rates', 'Task Completion Rates Report');
+    toast.success('Chart exported to PDF');
+  };
 
   const chartConfig = {
     completed: {
@@ -100,9 +121,16 @@ export const TaskCompletionChart = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Task Completion Rates (Last 8 Weeks)</CardTitle>
+        <CardTitle>Task Completion Rates</CardTitle>
       </CardHeader>
       <CardContent>
+        <ChartFilters
+          startDate={startDate}
+          endDate={endDate}
+          onDateRangeChange={handleDateRangeChange}
+          onExportCSV={handleExportCSV}
+          onExportPDF={handleExportPDF}
+        />
         <ChartContainer config={chartConfig} className="h-[300px] w-full">
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />

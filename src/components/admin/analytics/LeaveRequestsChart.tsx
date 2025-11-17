@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, Legend, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
+import { ChartFilters } from "./ChartFilters";
+import { exportToCSV, exportToPDF } from "@/utils/exportHelpers";
+import { toast } from "sonner";
 
 interface LeaveData {
   month: string;
@@ -14,14 +17,17 @@ interface LeaveData {
 export const LeaveRequestsChart = () => {
   const [data, setData] = useState<LeaveData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState<Date | undefined>(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 6);
+    return date;
+  });
+  const [endDate, setEndDate] = useState<Date | undefined>(new Date());
 
   useEffect(() => {
     const fetchLeaveData = async () => {
       try {
-        // Get leave requests from last 6 months
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setMonth(startDate.getMonth() - 6);
+        if (!startDate || !endDate) return;
 
         const { data: leaveData, error } = await supabase
           .from('leave_requests')
@@ -57,7 +63,22 @@ export const LeaveRequestsChart = () => {
     };
 
     fetchLeaveData();
-  }, []);
+  }, [startDate, endDate]);
+
+  const handleDateRangeChange = (newStartDate: Date | undefined, newEndDate: Date | undefined) => {
+    setStartDate(newStartDate);
+    setEndDate(newEndDate);
+  };
+
+  const handleExportCSV = () => {
+    exportToCSV(data, 'leave-request-statistics');
+    toast.success('Chart exported to CSV');
+  };
+
+  const handleExportPDF = () => {
+    exportToPDF(data, 'leave-request-statistics', 'Leave Request Statistics Report');
+    toast.success('Chart exported to PDF');
+  };
 
   const chartConfig = {
     approved: {
@@ -90,9 +111,16 @@ export const LeaveRequestsChart = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Leave Request Statistics (Last 6 Months)</CardTitle>
+        <CardTitle>Leave Request Statistics</CardTitle>
       </CardHeader>
       <CardContent>
+        <ChartFilters
+          startDate={startDate}
+          endDate={endDate}
+          onDateRangeChange={handleDateRangeChange}
+          onExportCSV={handleExportCSV}
+          onExportPDF={handleExportPDF}
+        />
         <ChartContainer config={chartConfig} className="h-[300px] w-full">
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
