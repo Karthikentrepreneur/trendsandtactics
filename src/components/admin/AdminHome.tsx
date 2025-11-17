@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import AttendanceTable from "./AttendanceTable";
 import { AttendanceRecord } from "@/services/attendance/types";
 import { useQuery } from "@tanstack/react-query";
+import { AttendanceTrendsChart } from "./analytics/AttendanceTrendsChart";
+import { TaskCompletionChart } from "./analytics/TaskCompletionChart";
+import { LeaveRequestsChart } from "./analytics/LeaveRequestsChart";
 
 const AdminHome = () => {
   const [stats, setStats] = useState([
@@ -150,6 +153,16 @@ const AdminHome = () => {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Analytics Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <AttendanceTrendsChart />
+        <TaskCompletionChart />
+      </div>
+      
+      <div className="mt-0">
+        <LeaveRequestsChart />
       </div>
       
       <div className="space-y-4">
