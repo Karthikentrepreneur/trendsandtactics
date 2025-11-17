@@ -44,9 +44,66 @@ export const ChartFilters = ({
     onDateRangeChange(localStartDate, date);
   };
 
+  const setPresetRange = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - days);
+    setLocalStartDate(start);
+    setLocalEndDate(end);
+    onDateRangeChange(start, end);
+  };
+
+  const setQuarterRange = () => {
+    const end = new Date();
+    const start = new Date();
+    start.setMonth(start.getMonth() - 3);
+    setLocalStartDate(start);
+    setLocalEndDate(end);
+    onDateRangeChange(start, end);
+  };
+
+  const setYearToDate = () => {
+    const end = new Date();
+    const start = new Date(end.getFullYear(), 0, 1);
+    setLocalStartDate(start);
+    setLocalEndDate(end);
+    onDateRangeChange(start, end);
+  };
+
   return (
-    <div className="flex flex-wrap items-center gap-2 mb-4">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setPresetRange(7)}
+        >
+          Last 7 days
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setPresetRange(30)}
+        >
+          Last month
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={setQuarterRange}
+        >
+          Last quarter
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={setYearToDate}
+        >
+          Year to date
+        </Button>
+      </div>
+      
+      <div className="flex flex-wrap items-center gap-2">
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -113,24 +170,24 @@ export const ChartFilters = ({
             Clear
           </Button>
         )}
-      </div>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onExportCSV}>
-            Export as CSV
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onExportPDF}>
-            Export as PDF
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onExportCSV}>
+              Export as CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onExportPDF}>
+              Export as PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 };
