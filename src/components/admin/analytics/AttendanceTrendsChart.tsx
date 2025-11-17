@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
+import { ChartFilters } from "./ChartFilters";
+import { exportToCSV, exportToPDF } from "@/utils/exportHelpers";
+import { toast } from "sonner";
 
 interface AttendanceData {
   date: string;
@@ -14,14 +17,17 @@ interface AttendanceData {
 export const AttendanceTrendsChart = () => {
   const [data, setData] = useState<AttendanceData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState<Date | undefined>(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return date;
+  });
+  const [endDate, setEndDate] = useState<Date | undefined>(new Date());
 
   useEffect(() => {
     const fetchAttendanceData = async () => {
       try {
-        // Get last 30 days of attendance
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - 30);
+        if (!startDate || !endDate) return;
 
         const { data: attendanceData, error } = await supabase
           .from('attendance')
@@ -64,7 +70,22 @@ export const AttendanceTrendsChart = () => {
     };
 
     fetchAttendanceData();
-  }, []);
+  }, [startDate, endDate]);
+
+  const handleDateRangeChange = (newStartDate: Date | undefined, newEndDate: Date | undefined) => {
+    setStartDate(newStartDate);
+    setEndDate(newEndDate);
+  };
+
+  const handleExportCSV = () => {
+    exportToCSV(data, 'attendance-trends');
+    toast.success('Chart exported to CSV');
+  };
+
+  const handleExportPDF = () => {
+    exportToPDF(data, 'attendance-trends', 'Attendance Trends Report');
+    toast.success('Chart exported to PDF');
+  };
 
   const chartConfig = {
     present: {
@@ -97,9 +118,16 @@ export const AttendanceTrendsChart = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Attendance Trends (Last 30 Days)</CardTitle>
+        <CardTitle>Attendance Trends</CardTitle>
       </CardHeader>
       <CardContent>
+        <ChartFilters
+          startDate={startDate}
+          endDate={endDate}
+          onDateRangeChange={handleDateRangeChange}
+          onExportCSV={handleExportCSV}
+          onExportPDF={handleExportPDF}
+        />
         <ChartContainer config={chartConfig} className="h-[300px] w-full">
           <AreaChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
