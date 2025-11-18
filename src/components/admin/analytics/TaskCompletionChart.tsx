@@ -13,17 +13,23 @@ interface TaskData {
   pending: number;
   inProgress: number;
   completionRate: number;
+  comparisonCompleted?: number;
+  comparisonPending?: number;
+  comparisonInProgress?: number;
 }
 
 export const TaskCompletionChart = () => {
   const [data, setData] = useState<TaskData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [comparisonMode, setComparisonMode] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>(() => {
     const date = new Date();
     date.setDate(date.getDate() - 56);
     return date;
   });
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
+  const [comparisonStartDate, setComparisonStartDate] = useState<Date | undefined>();
+  const [comparisonEndDate, setComparisonEndDate] = useState<Date | undefined>();
 
   useEffect(() => {
     const fetchTaskData = async () => {
@@ -56,13 +62,59 @@ export const TaskCompletionChart = () => {
         });
 
         // Calculate completion rate and convert to array
-        const chartData = Object.values(weeklyData).map((week: any) => {
+        let chartData = Object.values(weeklyData).map((week: any) => {
           const total = week.completed + week.pending + week.inProgress;
           return {
             ...week,
             completionRate: total > 0 ? Math.round((week.completed / total) * 100) : 0
           };
         });
+
+        // Fetch comparison data if comparison mode is enabled
+        if (comparisonMode && comparisonStartDate && comparisonEndDate) {
+          const { data: compData, error: compError } = await supabase
+            .from('tasks')
+            .select('created_at, status')
+            .gte('created_at', comparisonStartDate.toISOString())
+            .lte('created_at', comparisonEndDate.toISOString());
+
+          if (!compError && compData) {
+            const compWeeklyData: Record<string, any> = {};
+            
+            compData.forEach((task) => {
+              const date = new Date(task.created_at || '');
+              const weekStart = new Date(date);
+              weekStart.setDate(date.getDate() - date.getDay());
+              const weekKey = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+              if (!compWeeklyData[weekKey]) {
+                compWeeklyData[weekKey] = { completed: 0, pending: 0, inProgress: 0 };
+              }
+
+              if (task.status === 'completed') compWeeklyData[weekKey].completed++;
+              else if (task.status === 'pending') compWeeklyData[weekKey].pending++;
+              else if (task.status === 'in_progress') compWeeklyData[weekKey].inProgress++;
+            });
+
+            const compValues = Object.values(compWeeklyData);
+            const avgComparison = compValues.reduce(
+              (acc: any, week: any) => ({
+                completed: acc.completed + week.completed,
+                pending: acc.pending + week.pending,
+                inProgress: acc.inProgress + week.inProgress,
+              }),
+              { completed: 0, pending: 0, inProgress: 0 }
+            );
+
+            const compCount = compValues.length || 1;
+            chartData = chartData.map(week => ({
+              ...week,
+              comparisonCompleted: Math.round(avgComparison.completed / compCount),
+              comparisonPending: Math.round(avgComparison.pending / compCount),
+              comparisonInProgress: Math.round(avgComparison.inProgress / compCount),
+            }));
+          }
+        }
 
         setData(chartData);
       } catch (error) {
@@ -73,7 +125,7 @@ export const TaskCompletionChart = () => {
     };
 
     fetchTaskData();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, comparisonMode, comparisonStartDate, comparisonEndDate]);
 
   const handleDateRangeChange = (newStartDate: Date | undefined, newEndDate: Date | undefined) => {
     setStartDate(newStartDate);
@@ -103,6 +155,18 @@ export const TaskCompletionChart = () => {
       label: "Pending",
       color: "hsl(var(--muted))",
     },
+    comparisonCompleted: {
+      label: "Completed (Comparison)",
+      color: "hsl(var(--primary) / 0.4)",
+    },
+    comparisonInProgress: {
+      label: "In Progress (Comparison)",
+      color: "hsl(var(--accent) / 0.4)",
+    },
+    comparisonPending: {
+      label: "Pending (Comparison)",
+      color: "hsl(var(--muted) / 0.4)",
+    },
   };
 
   if (loading) {
@@ -127,7 +191,15 @@ export const TaskCompletionChart = () => {
         <ChartFilters
           startDate={startDate}
           endDate={endDate}
+          comparisonStartDate={comparisonStartDate}
+          comparisonEndDate={comparisonEndDate}
+          comparisonMode={comparisonMode}
           onDateRangeChange={handleDateRangeChange}
+          onComparisonDateRangeChange={(start, end) => {
+            setComparisonStartDate(start);
+            setComparisonEndDate(end);
+          }}
+          onComparisonModeChange={setComparisonMode}
           onExportCSV={handleExportCSV}
           onExportPDF={handleExportPDF}
         />
@@ -144,6 +216,28 @@ export const TaskCompletionChart = () => {
             <Bar dataKey="completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             <Bar dataKey="inProgress" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
             <Bar dataKey="pending" fill="hsl(var(--muted))" radius={[4, 4, 0, 0]} />
+            {comparisonMode && (
+              <>
+                <Bar 
+                  dataKey="comparisonCompleted" 
+                  fill="var(--color-comparisonCompleted)" 
+                  radius={[4, 4, 0, 0]}
+                  opacity={0.5}
+                />
+                <Bar 
+                  dataKey="comparisonInProgress" 
+                  fill="var(--color-comparisonInProgress)" 
+                  radius={[4, 4, 0, 0]}
+                  opacity={0.5}
+                />
+                <Bar 
+                  dataKey="comparisonPending" 
+                  fill="var(--color-comparisonPending)" 
+                  radius={[4, 4, 0, 0]}
+                  opacity={0.5}
+                />
+              </>
+            )}
           </BarChart>
         </ChartContainer>
       </CardContent>
