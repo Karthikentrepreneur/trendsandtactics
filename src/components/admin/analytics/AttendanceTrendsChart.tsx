@@ -12,17 +12,23 @@ interface AttendanceData {
   present: number;
   absent: number;
   halfDay: number;
+  comparisonPresent?: number;
+  comparisonAbsent?: number;
+  comparisonHalfDay?: number;
 }
 
 export const AttendanceTrendsChart = () => {
   const [data, setData] = useState<AttendanceData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [comparisonMode, setComparisonMode] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>(() => {
     const date = new Date();
     date.setDate(date.getDate() - 30);
     return date;
   });
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
+  const [comparisonStartDate, setComparisonStartDate] = useState<Date | undefined>();
+  const [comparisonEndDate, setComparisonEndDate] = useState<Date | undefined>();
 
   useEffect(() => {
     const fetchAttendanceData = async () => {
@@ -55,11 +61,56 @@ export const AttendanceTrendsChart = () => {
         }, {});
 
         // Convert to array and fill in absent counts
-        const chartData = Object.values(groupedData || {}).map((day: any) => ({
+        let chartData = Object.values(groupedData || {}).map((day: any) => ({
           ...day,
           absent: (totalEmployees || 0) - day.present - day.halfDay,
           date: new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         }));
+
+        // Fetch comparison data if comparison mode is enabled
+        if (comparisonMode && comparisonStartDate && comparisonEndDate) {
+          const { data: comparisonData, error: compError } = await supabase
+            .from('attendance')
+            .select('date, status')
+            .gte('date', comparisonStartDate.toISOString().split('T')[0])
+            .lte('date', comparisonEndDate.toISOString().split('T')[0])
+            .order('date', { ascending: true });
+
+          if (!compError && comparisonData) {
+            const compGroupedData = comparisonData.reduce((acc: Record<string, any>, record) => {
+              if (!acc[record.date]) {
+                acc[record.date] = { date: record.date, present: 0, absent: 0, halfDay: 0 };
+              }
+              if (record.status === 'present') acc[record.date].present++;
+              else if (record.status === 'absent') acc[record.date].absent++;
+              else if (record.status === 'half_day') acc[record.date].halfDay++;
+              return acc;
+            }, {});
+
+            const compChartData = Object.values(compGroupedData).map((day: any) => ({
+              ...day,
+              absent: (totalEmployees || 0) - day.present - day.halfDay,
+            }));
+
+            // Calculate averages for comparison period
+            const avgComparison = compChartData.reduce(
+              (acc, day: any) => ({
+                present: acc.present + day.present,
+                absent: acc.absent + day.absent,
+                halfDay: acc.halfDay + day.halfDay,
+              }),
+              { present: 0, absent: 0, halfDay: 0 }
+            );
+
+            const compCount = compChartData.length || 1;
+            chartData = chartData.map(day => ({
+              ...day,
+              comparisonPresent: Math.round(avgComparison.present / compCount),
+              comparisonAbsent: Math.round(avgComparison.absent / compCount),
+              comparisonHalfDay: Math.round(avgComparison.halfDay / compCount),
+            }));
+          }
+        }
 
         setData(chartData);
       } catch (error) {
@@ -70,7 +121,7 @@ export const AttendanceTrendsChart = () => {
     };
 
     fetchAttendanceData();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, comparisonMode, comparisonStartDate, comparisonEndDate]);
 
   const handleDateRangeChange = (newStartDate: Date | undefined, newEndDate: Date | undefined) => {
     setStartDate(newStartDate);
@@ -100,6 +151,18 @@ export const AttendanceTrendsChart = () => {
       label: "Absent",
       color: "hsl(var(--destructive))",
     },
+    comparisonPresent: {
+      label: "Present (Comparison)",
+      color: "hsl(var(--primary) / 0.4)",
+    },
+    comparisonHalfDay: {
+      label: "Half Day (Comparison)",
+      color: "hsl(var(--accent) / 0.4)",
+    },
+    comparisonAbsent: {
+      label: "Absent (Comparison)",
+      color: "hsl(var(--destructive) / 0.4)",
+    },
   };
 
   if (loading) {
@@ -124,7 +187,15 @@ export const AttendanceTrendsChart = () => {
         <ChartFilters
           startDate={startDate}
           endDate={endDate}
+          comparisonStartDate={comparisonStartDate}
+          comparisonEndDate={comparisonEndDate}
+          comparisonMode={comparisonMode}
           onDateRangeChange={handleDateRangeChange}
+          onComparisonDateRangeChange={(start, end) => {
+            setComparisonStartDate(start);
+            setComparisonEndDate(end);
+          }}
+          onComparisonModeChange={setComparisonMode}
           onExportCSV={handleExportCSV}
           onExportPDF={handleExportPDF}
         />
@@ -162,6 +233,37 @@ export const AttendanceTrendsChart = () => {
               fill="hsl(var(--destructive))"
               fillOpacity={0.6}
             />
+            {comparisonMode && (
+              <>
+                <Area
+                  dataKey="comparisonPresent"
+                  type="monotone"
+                  fill="var(--color-comparisonPresent)"
+                  fillOpacity={0.3}
+                  stroke="var(--color-comparisonPresent)"
+                  strokeDasharray="5 5"
+                  stackId="2"
+                />
+                <Area
+                  dataKey="comparisonHalfDay"
+                  type="monotone"
+                  fill="var(--color-comparisonHalfDay)"
+                  fillOpacity={0.3}
+                  stroke="var(--color-comparisonHalfDay)"
+                  strokeDasharray="5 5"
+                  stackId="2"
+                />
+                <Area
+                  dataKey="comparisonAbsent"
+                  type="monotone"
+                  fill="var(--color-comparisonAbsent)"
+                  fillOpacity={0.3}
+                  stroke="var(--color-comparisonAbsent)"
+                  strokeDasharray="5 5"
+                  stackId="2"
+                />
+              </>
+            )}
           </AreaChart>
         </ChartContainer>
       </CardContent>
