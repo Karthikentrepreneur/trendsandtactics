@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChartFilters } from "./ChartFilters";
 import { exportToCSV, exportToPDF } from "@/utils/exportHelpers";
 import { toast } from "sonner";
+import { ArrowUp, ArrowDown, Minus } from "lucide-react";
 
 interface TaskData {
   week: string;
@@ -142,18 +143,36 @@ export const TaskCompletionChart = () => {
     toast.success('Chart exported to PDF');
   };
 
+  const calculateTrend = () => {
+    if (!comparisonMode || data.length === 0) return null;
+
+    const currentCompleted = data.reduce((sum, d) => sum + d.completed, 0);
+    const comparisonCompleted = data.reduce((sum, d) => sum + (d.comparisonCompleted || 0), 0);
+
+    if (comparisonCompleted === 0) return null;
+
+    const percentChange = ((currentCompleted - comparisonCompleted) / comparisonCompleted) * 100;
+    return percentChange;
+  };
+
+  const trend = calculateTrend();
+
   const chartConfig = {
     completed: {
       label: "Completed",
       color: "hsl(var(--primary))",
     },
-    inProgress: {
+    in_progress: {
       label: "In Progress",
       color: "hsl(var(--accent))",
     },
     pending: {
       label: "Pending",
       color: "hsl(var(--muted))",
+    },
+    cancelled: {
+      label: "Cancelled",
+      color: "hsl(var(--destructive))",
     },
     comparisonCompleted: {
       label: "Completed (Comparison)",
@@ -166,6 +185,10 @@ export const TaskCompletionChart = () => {
     comparisonPending: {
       label: "Pending (Comparison)",
       color: "hsl(var(--muted) / 0.4)",
+    },
+    comparisonCancelled: {
+      label: "Cancelled (Comparison)",
+      color: "hsl(var(--destructive) / 0.4)",
     },
   };
 
@@ -185,7 +208,26 @@ export const TaskCompletionChart = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Task Completion Rates</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Task Completion Rates</CardTitle>
+          {trend !== null && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">vs comparison:</span>
+              <div className={`flex items-center gap-1 font-semibold ${
+                trend > 0 ? 'text-green-600' : trend < 0 ? 'text-red-600' : 'text-muted-foreground'
+              }`}>
+                {trend > 0 ? (
+                  <ArrowUp className="h-4 w-4" />
+                ) : trend < 0 ? (
+                  <ArrowDown className="h-4 w-4" />
+                ) : (
+                  <Minus className="h-4 w-4" />
+                )}
+                <span>{Math.abs(trend).toFixed(1)}%</span>
+              </div>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <ChartFilters
