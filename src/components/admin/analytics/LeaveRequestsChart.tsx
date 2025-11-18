@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChartFilters } from "./ChartFilters";
 import { exportToCSV, exportToPDF } from "@/utils/exportHelpers";
 import { toast } from "sonner";
+import { ArrowUp, ArrowDown, Minus } from "lucide-react";
 
 interface LeaveData {
   month: string;
@@ -132,6 +133,22 @@ export const LeaveRequestsChart = () => {
     toast.success('Chart exported to PDF');
   };
 
+  const calculateTrend = () => {
+    if (!comparisonMode || data.length === 0) return null;
+
+    const currentTotal = data.reduce((sum, d) => sum + d.approved + d.pending + d.rejected, 0);
+    const comparisonTotal = data.reduce((sum, d) => 
+      sum + (d.comparisonApproved || 0) + (d.comparisonPending || 0) + (d.comparisonRejected || 0), 0
+    );
+
+    if (comparisonTotal === 0) return null;
+
+    const percentChange = ((currentTotal - comparisonTotal) / comparisonTotal) * 100;
+    return percentChange;
+  };
+
+  const trend = calculateTrend();
+
   const chartConfig = {
     approved: {
       label: "Approved",
@@ -160,11 +177,30 @@ export const LeaveRequestsChart = () => {
   };
 
   if (loading) {
-    return (
-      <Card>
-        <CardHeader>
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
           <CardTitle>Leave Request Statistics</CardTitle>
-        </CardHeader>
+          {trend !== null && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">vs comparison:</span>
+              <div className={`flex items-center gap-1 font-semibold ${
+                trend > 0 ? 'text-green-600' : trend < 0 ? 'text-red-600' : 'text-muted-foreground'
+              }`}>
+                {trend > 0 ? (
+                  <ArrowUp className="h-4 w-4" />
+                ) : trend < 0 ? (
+                  <ArrowDown className="h-4 w-4" />
+                ) : (
+                  <Minus className="h-4 w-4" />
+                )}
+                <span>{Math.abs(trend).toFixed(1)}%</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </CardHeader>
         <CardContent className="h-[300px] flex items-center justify-center">
           <p className="text-muted-foreground">Loading...</p>
         </CardContent>

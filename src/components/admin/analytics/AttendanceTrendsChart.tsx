@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChartFilters } from "./ChartFilters";
 import { exportToCSV, exportToPDF } from "@/utils/exportHelpers";
 import { toast } from "sonner";
+import { ArrowUp, ArrowDown, Minus } from "lucide-react";
 
 interface AttendanceData {
   date: string;
@@ -138,13 +139,29 @@ export const AttendanceTrendsChart = () => {
     toast.success('Chart exported to PDF');
   };
 
+  const calculateTrend = () => {
+    if (!comparisonMode || data.length === 0) return null;
+
+    const currentTotal = data.reduce((sum, d) => sum + d.present + d.halfDay + d.absent, 0);
+    const comparisonTotal = data.reduce((sum, d) => 
+      sum + (d.comparisonPresent || 0) + (d.comparisonHalfDay || 0) + (d.comparisonAbsent || 0), 0
+    );
+
+    if (comparisonTotal === 0) return null;
+
+    const percentChange = ((currentTotal - comparisonTotal) / comparisonTotal) * 100;
+    return percentChange;
+  };
+
+  const trend = calculateTrend();
+
   const chartConfig = {
     present: {
       label: "Present",
       color: "hsl(var(--primary))",
     },
-    halfDay: {
-      label: "Half Day",
+    late: {
+      label: "Late",
       color: "hsl(var(--accent))",
     },
     absent: {
@@ -155,8 +172,8 @@ export const AttendanceTrendsChart = () => {
       label: "Present (Comparison)",
       color: "hsl(var(--primary) / 0.4)",
     },
-    comparisonHalfDay: {
-      label: "Half Day (Comparison)",
+    comparisonLate: {
+      label: "Late (Comparison)",
       color: "hsl(var(--accent) / 0.4)",
     },
     comparisonAbsent: {
@@ -181,7 +198,26 @@ export const AttendanceTrendsChart = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Attendance Trends</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Attendance Trends</CardTitle>
+          {trend !== null && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">vs comparison:</span>
+              <div className={`flex items-center gap-1 font-semibold ${
+                trend > 0 ? 'text-green-600' : trend < 0 ? 'text-red-600' : 'text-muted-foreground'
+              }`}>
+                {trend > 0 ? (
+                  <ArrowUp className="h-4 w-4" />
+                ) : trend < 0 ? (
+                  <ArrowDown className="h-4 w-4" />
+                ) : (
+                  <Minus className="h-4 w-4" />
+                )}
+                <span>{Math.abs(trend).toFixed(1)}%</span>
+              </div>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <ChartFilters
