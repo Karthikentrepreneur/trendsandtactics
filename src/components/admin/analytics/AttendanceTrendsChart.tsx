@@ -130,12 +130,12 @@ export const AttendanceTrendsChart = () => {
   };
 
   const handleExportCSV = () => {
-    exportToCSV(data, 'attendance-trends');
+    exportToCSV(data, 'attendance-trends', comparisonMode);
     toast.success('Chart exported to CSV');
   };
 
   const handleExportPDF = () => {
-    exportToPDF(data, 'attendance-trends', 'Attendance Trends Report');
+    exportToPDF(data, 'attendance-trends', 'Attendance Trends Report', comparisonMode);
     toast.success('Chart exported to PDF');
   };
 

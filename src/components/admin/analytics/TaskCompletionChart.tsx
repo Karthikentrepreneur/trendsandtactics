@@ -134,12 +134,12 @@ export const TaskCompletionChart = () => {
   };
 
   const handleExportCSV = () => {
-    exportToCSV(data, 'task-completion-rates');
+    exportToCSV(data, 'task-completion-rates', comparisonMode);
     toast.success('Chart exported to CSV');
   };
 
   const handleExportPDF = () => {
-    exportToPDF(data, 'task-completion-rates', 'Task Completion Rates Report');
+    exportToPDF(data, 'task-completion-rates', 'Task Completion Rates Report', comparisonMode);
     toast.success('Chart exported to PDF');
   };
 
