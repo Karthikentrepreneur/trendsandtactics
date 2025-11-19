@@ -124,12 +124,12 @@ export const LeaveRequestsChart = () => {
   };
 
   const handleExportCSV = () => {
-    exportToCSV(data, 'leave-request-statistics');
+    exportToCSV(data, 'leave-request-statistics', comparisonMode);
     toast.success('Chart exported to CSV');
   };
 
   const handleExportPDF = () => {
-    exportToPDF(data, 'leave-request-statistics', 'Leave Request Statistics Report');
+    exportToPDF(data, 'leave-request-statistics', 'Leave Request Statistics Report', comparisonMode);
     toast.success('Chart exported to PDF');
   };
 
